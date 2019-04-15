@@ -8,7 +8,6 @@ spec:
     Knative Serving builds on Kubernetes and Istio to support deploying and serving of serverless applications and functions
   version: 0.4.1
   maturity: alpha
-  replaces: knative-serving.v0.3.0
   
   installModes:
   - supported: true
@@ -178,6 +177,34 @@ spec:
           - patch
           - watch
         - apiGroups:
+          - build.knative.dev
+          resources:
+          - builds
+          verbs:
+          - get
+          - list
+          - create
+          - update
+          - delete
+          - patch
+          - watch
+        - apiGroups:
+          - pipeline.knative.dev
+          resources:
+          - pipelines
+          - tasks
+          - pipelineresources
+          - pipelineruns
+          - taskruns
+          verbs:
+          - get
+          - list
+          - create
+          - update
+          - delete
+          - patch
+          - watch
+        - apiGroups:
           - networking.istio.io
           resources:
           - virtualservices
@@ -222,6 +249,38 @@ spec:
           - '*'
           verbs:
           - '*'
+
+        # required for the Operator
+
+        - apiGroups:
+          - config.openshift.io
+          resources:
+          - networks
+          - ingresses
+          verbs:
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - nodes
+          verbs:
+          - list
+          - watch
+        - apiGroups:
+          - ingresses.config.openshift.io
+          resources:
+          - ingresses
+          verbs:
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - nodes
+          verbs:
+          - list
+          - watch          
 
       deployments:
       - name: knative-serving-operator
