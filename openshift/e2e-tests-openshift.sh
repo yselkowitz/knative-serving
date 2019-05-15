@@ -172,6 +172,8 @@ spec:
           limits:
             cpu: 200m
             memory: 128Mi
+    sidecarInjectorWebhook:
+      enabled: false
     gateways:
       istio-egressgateway:
         autoscaleEnabled: false
