@@ -13,7 +13,7 @@ readonly USER=$KUBE_SSH_USER #satisfy e2e_flags.go#initializeFlags()
 readonly OPENSHIFT_REGISTRY="${OPENSHIFT_REGISTRY:-"registry.svc.ci.openshift.org"}"
 readonly SSH_PRIVATE_KEY="${SSH_PRIVATE_KEY:-"$HOME/.ssh/google_compute_engine"}"
 readonly INSECURE="${INSECURE:-"false"}"
-readonly MAISTRA_VERSION="0.6"
+readonly MAISTRA_VERSION="0.10"
 readonly TEST_NAMESPACE=serving-tests
 readonly SERVING_NAMESPACE=knative-serving
 readonly TARGET_IMAGE_PREFIX="$INTERNAL_REGISTRY/$SERVING_NAMESPACE/knative-serving-"
@@ -145,40 +145,65 @@ function install_istio(){
   header "Installing Istio"
 
   # Install the Maistra Operator
-  oc create namespace istio-operator
-  oc process -f https://raw.githubusercontent.com/Maistra/openshift-ansible/maistra-${MAISTRA_VERSION}/istio/istio_community_operator_template.yaml | oc create -f -
+  oc new-project istio-operator
+  oc new-project istio-system
+  oc apply -n istio-operator -f https://raw.githubusercontent.com/Maistra/istio-operator/maistra-${MAISTRA_VERSION}/deploy/maistra-operator.yaml
 
   # Wait until the Operator pod is up and running
   wait_until_pods_running istio-operator || return 1
 
   # Deploy Istio
   cat <<EOF | oc apply -f -
-apiVersion: istio.openshift.com/v1alpha1
-kind: Installation
+apiVersion: istio.openshift.com/v1alpha3
+kind: ControlPlane
 metadata:
-  namespace: istio-operator
-  name: istio-installation
+  name: basic-install
 spec:
   istio:
-    authentication: false
-    community: true
+    global:
+      # use community images
+      hub: "maistra"
+      tag: ${MAISTRA_VERSION}.0
+      proxy:
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+    sidecarInjectorWebhook:
+      enabled: false
+    gateways:
+      istio-egressgateway:
+        autoscaleEnabled: false
+      istio-ingressgateway:
+        autoscaleEnabled: false
+        ior_enabled: false
+    mixer:
+      policy:
+        autoscaleEnabled: false
+      telemetry:
+        autoscaleEnabled: false
+        resources:
+          requests:
+            cpu: 100m
+            memory: 1G
+          limits:
+            cpu: 200m
+            memory: 2G
+    pilot:
+      autoscaleEnabled: false
+    kiali:
+      enabled: false
+    tracing:
+      enabled: false
 EOF
 
-  # Wait until at least the istio installer job is running
-  wait_until_pods_running istio-system || return 1
+  timeout 900 '[[ $(oc get ControlPlane/basic-install --template="{{range .status.conditions}}{{printf \"%s=%s, reason=%s, message=%s\n\n\" .type .status .reason .message}}{{end}}" | grep -c Installed=True) -eq 0 ]]' || return 1
 
-  timeout 900 'oc get pods -n istio-system && [[ $(oc get pods -n istio-system | grep openshift-ansible-istio-installer | grep -c Completed) -eq 0 ]]' || return 1
-
-  # Scale down unused services deployed by the istio operator. The
-  # jaeger pods will fail anyway due to the elasticsearch pod failing
-  # due to "max virtual memory areas vm.max_map_count [65530] is too
-  # low, increase to at least [262144]" which could be mitigated on
-  # minishift with:
-  #  minishift ssh "echo 'echo vm.max_map_count = 262144 >/etc/sysctl.d/99-elasticsearch.conf' | sudo sh"
+  # Scale down unused services deployed by the istio operator. 
   oc scale -n istio-system --replicas=0 deployment/grafana
-  oc scale -n istio-system --replicas=0 deployment/jaeger-collector
-  oc scale -n istio-system --replicas=0 deployment/jaeger-query
-  oc scale -n istio-system --replicas=0 statefulset/elasticsearch
 
   patch_istio_for_knative || return 1
   
@@ -195,6 +220,7 @@ function install_knative(){
   oc adm policy add-scc-to-user anyuid -z build-controller -n knative-build
   oc adm policy add-scc-to-user anyuid -z controller -n knative-serving
   oc adm policy add-scc-to-user anyuid -z autoscaler -n knative-serving
+
   oc adm policy add-cluster-role-to-user cluster-admin -z build-controller -n knative-build
   oc adm policy add-cluster-role-to-user cluster-admin -z controller -n knative-serving
 
@@ -321,8 +347,7 @@ function run_e2e_tests(){
 
 function delete_istio_openshift(){
   echo ">> Bringing down Istio"
-  oc delete --ignore-not-found=true -f $ISTIO_YAML
-  oc delete --ignore-not-found=true -f $ISTIO_CRD_YAML
+  oc delete ControlPlane/basic-install -n istio-system
 }
 
 function delete_serving_openshift() {
