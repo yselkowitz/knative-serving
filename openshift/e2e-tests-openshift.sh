@@ -99,90 +99,6 @@ function timeout() {
   return 0
 }
 
-function patch_istio_for_knative(){
-  local sidecar_config=$(oc get configmap -n istio-system istio-sidecar-injector -o yaml)
-  if [[ -z "${sidecar_config}" ]]; then
-    return 1
-  fi
-  echo "${sidecar_config}" | grep lifecycle
-  if [[ $? -eq 1 ]]; then
-    echo "Patching Istio's preStop hook for graceful shutdown"
-    echo "${sidecar_config}" | sed 's/\(name: istio-proxy\)/\1\\n    lifecycle:\\n      preStop:\\n        exec:\\n          command: [\\"sh\\", \\"-c\\", \\"sleep 20; while [ $(netstat -plunt | grep tcp | grep -v envoy | wc -l | xargs) -ne 0 ]; do sleep 1; done\\"]/' | oc replace -f -
-    oc delete pod -n istio-system -l istio=sidecar-injector
-    wait_until_pods_running istio-system || return 1
-  fi
-  return 0
-}
-
-function install_istio(){
-  header "Installing Istio"
-
-  # Install the Maistra Operator
-  oc new-project istio-operator
-  oc new-project istio-system
-  oc apply -n istio-operator -f https://raw.githubusercontent.com/Maistra/istio-operator/maistra-${MAISTRA_VERSION}/deploy/maistra-operator.yaml
-
-  # Wait until the Operator pod is up and running
-  wait_until_pods_running istio-operator || return 1
-
-  # Deploy Istio
-  cat <<EOF | oc apply -f -
-apiVersion: istio.openshift.com/v1alpha3
-kind: ControlPlane
-metadata:
-  name: basic-install
-spec:
-  istio:
-    global:
-      # use community images
-      hub: "maistra"
-      tag: ${MAISTRA_VERSION}.0
-      proxy:
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 200m
-            memory: 128Mi
-    sidecarInjectorWebhook:
-      enabled: false
-    gateways:
-      istio-egressgateway:
-        autoscaleEnabled: false
-      istio-ingressgateway:
-        autoscaleEnabled: false
-        ior_enabled: false
-    mixer:
-      policy:
-        autoscaleEnabled: false
-      telemetry:
-        autoscaleEnabled: false
-        resources:
-          requests:
-            cpu: 100m
-            memory: 1G
-          limits:
-            cpu: 200m
-            memory: 2G
-    pilot:
-      autoscaleEnabled: false
-    kiali:
-      enabled: false
-    tracing:
-      enabled: false
-EOF
-
-  timeout 900 '[[ $(oc get ControlPlane/basic-install --template="{{range .status.conditions}}{{printf \"%s=%s, reason=%s, message=%s\n\n\" .type .status .reason .message}}{{end}}" | grep -c Installed=True) -eq 0 ]]' || return 1
-
-  # Scale down unused services deployed by the istio operator. 
-  oc scale -n istio-system --replicas=0 deployment/grafana
-
-  patch_istio_for_knative || return 1
-  
-  header "Istio Installed successfully"
-}
-
 function install_knative(){
   header "Installing Knative"
 
@@ -212,29 +128,6 @@ function install_knative(){
   # Create imagestream for images generated in CI namespace
   tag_core_images openshift/release/knative-serving-ci.yaml
 
-  echo ">> Patching Istio"
-  for gateway in istio-ingressgateway cluster-local-gateway istio-egressgateway; do
-    if kubectl get svc -n istio-system ${gateway} > /dev/null 2>&1 ; then
-      kubectl patch hpa -n istio-system ${gateway} --patch '{"spec": {"maxReplicas": 1}}'
-      kubectl set resources deploy -n istio-system ${gateway} \
-        -c=istio-proxy --requests=cpu=50m 2> /dev/null
-    fi
-  done
-
-  # There are reports of Envoy failing (503) when istio-pilot is overloaded.
-  # We generously add more pilot instances here to verify if we can reduce flakes.
-  if kubectl get hpa -n istio-system istio-pilot 2>/dev/null; then
-    # If HPA exists, update it.  Since patching will return non-zero if no change
-    # is made, we don't return on failure here.
-    kubectl patch hpa -n istio-system istio-pilot \
-      --patch '{"spec": {"minReplicas": 3, "maxReplicas": 10, "targetCPUUtilizationPercentage": 60}}' \
-      `# Ignore error messages to avoid causing red herrings in the tests` \
-      2>/dev/null
-  else
-    # Some versions of Istio doesn't provide an HPA for pilot.
-    kubectl autoscale -n istio-system deploy istio-pilot --min=3 --max=10 --cpu-percent=60 || return 1
-  fi
-
   wait_until_pods_running knative-build || return 1
   wait_until_pods_running knative-build-pipeline || return 1
 
@@ -244,6 +137,8 @@ function install_knative(){
 
   enable_knative_interaction_with_registry
 
+  # Wait for 2 pods to appear first
+  timeout 900 '[[ $(oc get pods -n istio-system --no-headers | wc -l) -lt 2 ]]' || return 1
   wait_until_service_has_external_ip istio-system istio-ingressgateway || fail_test "Ingress has no external IP"
 
   wait_until_hostname_resolves $(kubectl get svc -n istio-system istio-ingressgateway -o jsonpath="{.status.loadBalancer.ingress[0].hostname}")
@@ -363,11 +258,6 @@ function run_e2e_tests(){
   return $failed
 }
 
-function delete_istio_openshift(){
-  echo ">> Bringing down Istio"
-  oc delete ControlPlane/basic-install -n istio-system
-}
-
 function delete_knative_openshift() {
   echo ">> Bringing down Knative Serving, Build and Pipeline"
   oc delete --ignore-not-found=true -n $OLM_NAMESPACE -f knative-serving.catalogsource-ci.yaml
@@ -394,7 +284,6 @@ function teardown() {
   delete_test_namespace
   delete_test_resources_openshift
   delete_knative_openshift
-  delete_istio_openshift
 }
 
 function tag_test_images() {
@@ -422,8 +311,6 @@ scale_up_workers || exit 1
 create_test_namespace || exit 1
 
 failed=0
-
-install_istio || failed=1
 
 (( !failed )) && install_knative || failed=1
 
