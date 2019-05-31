@@ -123,7 +123,7 @@ function install_knative(){
   oc apply -f third_party/config/pipeline/release.yaml
 
   # Deploy Knative Operators Serving
-  deploy_knative_operator serving
+  deploy_knative_operator serving KnativeServing
 
   # Create imagestream for images generated in CI namespace
   tag_core_images openshift/release/knative-serving-ci.yaml
@@ -148,6 +148,7 @@ function install_knative(){
 
 function deploy_knative_operator(){
   local COMPONENT="knative-$1"
+  local KIND=$2
 
   cat <<-EOF | oc apply -f -
 	apiVersion: v1
@@ -179,7 +180,7 @@ function deploy_knative_operator(){
 	EOF
   cat <<-EOF | oc apply -f -
   apiVersion: serving.knative.dev/v1alpha1
-  kind: Install
+  kind: $KIND
   metadata:
     name: ${COMPONENT}
     namespace: ${COMPONENT}
