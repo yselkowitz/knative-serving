@@ -1,5 +1,5 @@
 diff --git a/test/conformance/runtime/user_test.go b/test/conformance/runtime/user_test.go
-index 802cd124..dd6ea0a2 100644
+index 09469185..9ef07ecb 100644
 --- a/test/conformance/runtime/user_test.go
 +++ b/test/conformance/runtime/user_test.go
 @@ -71,6 +71,7 @@ func TestMustRunAsUser(t *testing.T) {
@@ -9,4 +9,4 @@ index 802cd124..dd6ea0a2 100644
 +	t.Skip("Known not to work on OCP as is.")
  	t.Parallel()
  	clients := test.Setup(t)
- 	_, ri, err := fetchRuntimeInfoUnprivileged(t, clients, &v1a1test.Options{})
+ 	_, ri, err := fetchRuntimeInfoUnprivileged(t, clients)
