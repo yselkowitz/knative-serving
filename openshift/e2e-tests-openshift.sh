@@ -186,6 +186,8 @@ function create_test_namespace(){
   oc new-project $TEST_NAMESPACE_ALT
   oc adm policy add-scc-to-user privileged -z default -n $TEST_NAMESPACE
   oc adm policy add-scc-to-user privileged -z default -n $TEST_NAMESPACE_ALT
+  # adding scc for anyuid to test TestShouldRunAsUserContainerDefault.
+  oc adm policy add-scc-to-user anyuid -z default -n $TEST_NAMESPACE
 }
 
 function run_e2e_tests(){
