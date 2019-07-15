@@ -24,14 +24,12 @@ function resolve_file() {
   local image_tag=$4
 
   echo "---" >> "$to"
-  # 1. Prefix test image references with test-
-  # 2. Rewrite image references
-  # 3. Update config map entry
-  # 4. Remove comment lines
-  # 5. Remove empty lines
-  sed -e "s+\(.* image: \)\(github.com\)\(.*/\)\(test/\)\(.*\)+\1\2 \3\4test-\5+g" \
-      -e "s+\(.* image: \)\(github.com\)\(.*/\)\(.*\)+\1 ${image_prefix}\4${image_tag}+g" \
-      -e "s+\(.* queueSidecarImage: \)\(github.com\)\(.*/\)\(.*\)+\1 ${image_prefix}\4${image_tag}+g" \
+  # 1. Rewrite image references
+  # 2. Update config map entry
+  # 3. Remove comment lines
+  # 4. Remove empty lines
+  sed -e "s+\(.* image: \)\(knative.dev\)\(.*/\)\(.*\)+\1${image_prefix}\4${image_tag}+g" \
+      -e "s+\(.* queueSidecarImage: \)\(knative.dev\)\(.*/\)\(.*\)+\1${image_prefix}\4${image_tag}+g" \
       -e '/^[ \t]*#/d' \
       -e '/^[ \t]*$/d' \
       "$file" >> "$to"
