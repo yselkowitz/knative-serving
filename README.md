@@ -4,13 +4,6 @@ This repository holds Openshift's fork of
 [`knative/serving`](https://github.com/knative/serving) with additions and
 fixes needed only for the OpenShift side of things.
 
-## List of releases
-
-- (old) [release-0.2](https://github.com/openshift/knative-serving/tree/release-0.2)
-- (old) [release-0.3](https://github.com/openshift/knative-serving/tree/release-0.3)
-- [release-v0.4.1](https://github.com/openshift/knative-serving/tree/release-v0.4.1)
-- [release-v0.5.1](https://github.com/openshift/knative-serving/tree/release-v0.5.1)
-
 ## How this repository works ?
 
 The `master` branch holds up-to-date specific [openshift files](./openshift) 
