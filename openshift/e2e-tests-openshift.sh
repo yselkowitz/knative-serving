@@ -241,6 +241,16 @@ function teardown() {
   delete_knative_openshift
 }
 
+function dump_openshift_ingress_state(){
+  echo ">>> routes.route.openshift.io:"
+  oc get routes.route.openshift.io -o yaml --all-namespaces
+  echo ">>> routes.serving.knative.dev:"
+  oc get routes.serving.knative.dev -o yaml --all-namespaces
+
+  echo ">>> openshift-ingress log:"
+  oc logs deployment/knative-openshift-ingress -n knative-serving 
+}
+
 function tag_test_images() {
   local dir=$1
   image_dirs="$(find ${dir} -mindepth 1 -maxdepth 1 -type d)"
@@ -274,6 +284,8 @@ failed=0
 (( !failed )) && run_e2e_tests || failed=1
 
 (( failed )) && dump_cluster_state
+
+(( failed )) && dump_openshift_ingress_state
 
 teardown
 
