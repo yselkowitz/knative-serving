@@ -241,6 +241,14 @@ function teardown() {
   delete_knative_openshift
 }
 
+function dump_openshift_olm_state(){
+  echo ">>> subscriptions.operators.coreos.com:"
+  oc get subscriptions.operators.coreos.com -o yaml --all-namespaces   # This is for status checking.
+
+  echo ">>> catalog operator log:"
+  oc logs -n openshift-operator-lifecycle-manager deployment/catalog-operator
+}
+
 function dump_openshift_ingress_state(){
   echo ">>> routes.route.openshift.io:"
   oc get routes.route.openshift.io -o yaml --all-namespaces
@@ -284,6 +292,8 @@ failed=0
 (( !failed )) && run_e2e_tests || failed=1
 
 (( failed )) && dump_cluster_state
+
+(( failed )) && dump_openshift_olm_state
 
 (( failed )) && dump_openshift_ingress_state
 
