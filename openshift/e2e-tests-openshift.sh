@@ -15,6 +15,7 @@ readonly TEST_NAMESPACE=serving-tests
 readonly TEST_NAMESPACE_ALT=serving-tests-alt
 readonly SERVING_NAMESPACE=knative-serving
 readonly TARGET_IMAGE_PREFIX="$INTERNAL_REGISTRY/$SERVING_NAMESPACE/knative-serving-"
+readonly MAISTRA_VERSION="0.12"
 readonly OLM_NAMESPACE="openshift-operator-lifecycle-manager"
 
 env
@@ -78,8 +79,104 @@ function timeout() {
   return 0
 }
 
+function install_istio(){
+  header "Installing Istio"
+
+  # Install the Maistra Operator
+  oc new-project istio-operator
+  oc new-project istio-system
+  oc apply -n istio-operator -f https://raw.githubusercontent.com/Maistra/istio-operator/maistra-${MAISTRA_VERSION}/deploy/maistra-operator.yaml
+
+  # Wait until the Operator pod is up and running
+  wait_until_pods_running istio-operator || return 1
+
+  # Workaround for MAISTRA-670
+  oc delete validatingwebhookconfiguration istio-operator.servicemesh-resources.maistra.io
+
+  # Deploy Istio
+  cat <<EOF | oc apply -f -
+apiVersion: maistra.io/v1
+kind: ServiceMeshControlPlane
+metadata:
+  name: minimal-multitenant-cni-install
+  namespace: istio-system
+spec:
+  istio:
+    global:
+      multitenant: true
+      proxy:
+        autoInject: disabled
+      omitSidecarInjectorConfigMap: true
+      disablePolicyChecks: false
+    istio_cni:
+      enabled: true
+    gateways:
+      istio-ingressgateway:
+        autoscaleEnabled: false
+        type: LoadBalancer
+      istio-egressgateway:
+        enabled: false
+      cluster-local-gateway:
+        autoscaleEnabled: false
+        enabled: true
+        labels:
+          app: cluster-local-gateway
+          istio: cluster-local-gateway
+        ports:
+          - name: status-port
+            port: 15020
+          - name: http2
+            port: 80
+            targetPort: 80
+          - name: https
+            port: 443
+    mixer:
+      enabled: false
+      policy:
+        enabled: false
+      telemetry:
+        enabled: false
+    pilot:
+      # disable autoscaling for use in smaller environments
+      autoscaleEnabled: false
+      sidecar: false
+    kiali:
+      enabled: false
+    tracing:
+      enabled: false
+    prometheus:
+      enabled: false
+    grafana:
+      enabled: false
+    sidecarInjectorWebhook:
+      enabled: false
+---
+apiVersion: maistra.io/v1
+kind: ServiceMeshMemberRoll
+metadata:
+  name: default
+spec:
+  members:
+  - serving-tests
+  - serving-tests-alt
+  - knative-serving
+EOF
+
+  # Wait for the ingressgateway pod to appear.
+  timeout 900 '[[ $(oc get pods -n istio-system | grep -c istio-ingressgateway) -eq 0 ]]' || return 1
+
+  wait_until_service_has_external_ip istio-system istio-ingressgateway || fail_test "Ingress has no external IP"
+  wait_until_hostname_resolves $(kubectl get svc -n istio-system istio-ingressgateway -o jsonpath="{.status.loadBalancer.ingress[0].hostname}")
+
+  wait_until_pods_running istio-system
+
+  header "Istio Installed successfully"
+}
+
 function install_knative(){
   header "Installing Knative"
+
+  create_knative_namespace serving
 
   echo ">> Patching Knative Serving CatalogSource to reference CI produced images"
   CURRENT_GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
@@ -101,18 +198,11 @@ function install_knative(){
   timeout 900 '[[ $(oc get pods -n $SERVING_NAMESPACE --no-headers | wc -l) -lt 6 ]]' || return 1
   wait_until_pods_running knative-serving || return 1
 
-  # Wait for 2 pods to appear first
-  timeout 900 '[[ $(oc get pods -n istio-system --no-headers | wc -l) -lt 2 ]]' || return 1
-  wait_until_service_has_external_ip istio-system istio-ingressgateway || fail_test "Ingress has no external IP"
-
-  wait_until_hostname_resolves $(kubectl get svc -n istio-system istio-ingressgateway -o jsonpath="{.status.loadBalancer.ingress[0].hostname}")
-
   header "Knative Installed successfully"
 }
 
-function deploy_knative_operator(){
+function create_knative_namespace(){
   local COMPONENT="knative-$1"
-  local KIND=$2
 
   cat <<-EOF | oc apply -f -
 	apiVersion: v1
@@ -120,6 +210,12 @@ function deploy_knative_operator(){
 	metadata:
 	  name: ${COMPONENT}
 	EOF
+}
+
+function deploy_knative_operator(){
+  local COMPONENT="knative-$1"
+  local KIND=$2
+
   if oc get crd operatorgroups.operators.coreos.com >/dev/null 2>&1; then
     cat <<-EOF | oc apply -f -
 	apiVersion: operators.coreos.com/v1
@@ -241,6 +337,24 @@ function teardown() {
   delete_knative_openshift
 }
 
+function dump_openshift_olm_state(){
+  echo ">>> subscriptions.operators.coreos.com:"
+  oc get subscriptions.operators.coreos.com -o yaml --all-namespaces   # This is for status checking.
+
+  echo ">>> catalog operator log:"
+  oc logs -n openshift-operator-lifecycle-manager deployment/catalog-operator
+}
+
+function dump_openshift_ingress_state(){
+  echo ">>> routes.route.openshift.io:"
+  oc get routes.route.openshift.io -o yaml --all-namespaces
+  echo ">>> routes.serving.knative.dev:"
+  oc get routes.serving.knative.dev -o yaml --all-namespaces
+
+  echo ">>> openshift-ingress log:"
+  oc logs deployment/knative-openshift-ingress -n knative-serving 
+}
+
 function tag_test_images() {
   local dir=$1
   image_dirs="$(find ${dir} -mindepth 1 -maxdepth 1 -type d)"
@@ -267,6 +381,8 @@ create_test_namespace || exit 1
 
 failed=0
 
+(( !failed )) && install_istio || failed=1
+
 (( !failed )) && install_knative || failed=1
 
 (( !failed )) && create_test_resources_openshift || failed=1
@@ -274,6 +390,10 @@ failed=0
 (( !failed )) && run_e2e_tests || failed=1
 
 (( failed )) && dump_cluster_state
+
+(( failed )) && dump_openshift_olm_state
+
+(( failed )) && dump_openshift_ingress_state
 
 teardown
 
