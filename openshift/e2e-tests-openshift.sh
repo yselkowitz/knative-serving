@@ -188,8 +188,17 @@ function install_knative(){
   timeout 900 '[[ $(oc get pods -n $OLM_NAMESPACE | grep -c knative) -eq 0 ]]' || return 1
   wait_until_pods_running $OLM_NAMESPACE
 
-  # Deploy Knative Serving Operator
-  deploy_knative_operator serving KnativeServing
+  # Deploy Serverless Operator
+  deploy_serverless_operator
+
+  # Install Knative Serving
+  cat <<-EOF | oc apply -f -
+  apiVersion: serving.knative.dev/v1alpha1
+  kind: KnativeServing
+  metadata:
+    name: knative-serving
+    namespace: knative-serving
+	EOF
 
   # Create imagestream for images generated in CI namespace
   tag_core_images openshift/release/knative-serving-ci.yaml
@@ -212,38 +221,22 @@ function create_knative_namespace(){
 	EOF
 }
 
-function deploy_knative_operator(){
-  local COMPONENT="knative-$1"
-  local KIND=$2
+function deploy_serverless_operator(){
+  local NAME="serverless-operator"
+  local NAMESPACE="knative-serving"
 
-  if oc get crd operatorgroups.operators.coreos.com >/dev/null 2>&1; then
-    cat <<-EOF | oc apply -f -
-	apiVersion: operators.coreos.com/v1
-	kind: OperatorGroup
-	metadata:
-	  name: ${COMPONENT}
-	  namespace: ${COMPONENT}
-	EOF
-  fi
   cat <<-EOF | oc apply -f -
 	apiVersion: operators.coreos.com/v1alpha1
 	kind: Subscription
 	metadata:
-	  name: ${COMPONENT}-subscription
-	  generateName: ${COMPONENT}-
-	  namespace: ${COMPONENT}
+	  name: ${NAME}-subscription
+	  generateName: ${NAME}-
+	  namespace: ${NAMESPACE}
 	spec:
-	  source: ${COMPONENT}-operator
+	  source: ${NAME}
 	  sourceNamespace: $OLM_NAMESPACE
-	  name: ${COMPONENT}-operator
-	  channel: alpha
-	EOF
-  cat <<-EOF | oc apply -f -
-  apiVersion: serving.knative.dev/v1alpha1
-  kind: $KIND
-  metadata:
-    name: ${COMPONENT}
-    namespace: ${COMPONENT}
+	  name: ${NAME}
+	  channel: techpreview
 	EOF
 }
 
