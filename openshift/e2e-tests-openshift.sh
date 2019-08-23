@@ -159,7 +159,7 @@ spec:
   members:
   - serving-tests
   - serving-tests-alt
-  - knative-serving
+  - ${SERVING_NAMESPACE}
 EOF
 
   # Wait for the ingressgateway pod to appear.
@@ -197,7 +197,7 @@ function install_knative(){
   kind: KnativeServing
   metadata:
     name: knative-serving
-    namespace: knative-serving
+    namespace: ${SERVING_NAMESPACE}
 	EOF
 
   # Create imagestream for images generated in CI namespace
@@ -205,7 +205,7 @@ function install_knative(){
 
   # Wait for 6 pods to appear first
   timeout 900 '[[ $(oc get pods -n $SERVING_NAMESPACE --no-headers | wc -l) -lt 6 ]]' || return 1
-  wait_until_pods_running knative-serving || return 1
+  wait_until_pods_running "$SERVING_NAMESPACE" || return 1
 
   header "Knative Installed successfully"
 }
@@ -223,7 +223,6 @@ function create_knative_namespace(){
 
 function deploy_serverless_operator(){
   local NAME="serverless-operator"
-  local NAMESPACE="knative-serving"
 
   if oc get crd operatorgroups.operators.coreos.com >/dev/null 2>&1; then
     cat <<-EOF | oc apply -f -
@@ -231,7 +230,7 @@ function deploy_serverless_operator(){
 	kind: OperatorGroup
 	metadata:
 	  name: ${NAME}
-	  namespace: ${NAMESPACE}
+	  namespace: ${SERVING_NAMESPACE}
 	EOF
   fi
 
@@ -241,7 +240,7 @@ function deploy_serverless_operator(){
 	metadata:
 	  name: ${NAME}-subscription
 	  generateName: ${NAME}-
-	  namespace: ${NAMESPACE}
+	  namespace: ${SERVING_NAMESPACE}
 	spec:
 	  source: ${NAME}
 	  sourceNamespace: $OLM_NAMESPACE
@@ -355,7 +354,7 @@ function dump_openshift_ingress_state(){
   oc get routes.serving.knative.dev -o yaml --all-namespaces
 
   echo ">>> openshift-ingress log:"
-  oc logs deployment/knative-openshift-ingress -n knative-serving 
+  oc logs deployment/knative-openshift-ingress -n "$SERVING_NAMESPACE"
 }
 
 function tag_test_images() {
