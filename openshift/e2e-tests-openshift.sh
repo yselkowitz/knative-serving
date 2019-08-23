@@ -178,18 +178,16 @@ function install_knative(){
 
   create_knative_namespace serving
 
-  echo ">> Patching Knative Serving CatalogSource to reference CI produced images"
-  CURRENT_GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-  RELEASE_YAML="https://raw.githubusercontent.com/openshift/knative-serving/${CURRENT_GIT_BRANCH}/openshift/release/knative-serving-ci.yaml"
-  sed "s|--filename=.*|--filename=${RELEASE_YAML}|"  openshift/olm/knative-serving.catalogsource.yaml > knative-serving.catalogsource-ci.yaml
-
   # Install CatalogSource in OLM namespace
-  oc apply -n $OLM_NAMESPACE -f knative-serving.catalogsource-ci.yaml
+  oc apply -n $OLM_NAMESPACE -f openshift/olm/knative-serving.catalogsource.yaml
   timeout 900 '[[ $(oc get pods -n $OLM_NAMESPACE | grep -c serverless) -eq 0 ]]' || return 1
   wait_until_pods_running $OLM_NAMESPACE
 
   # Deploy Serverless Operator
   deploy_serverless_operator
+
+  # Wait for the CRD to appear
+  timeout 900 '[[ $(oc get crd | grep -c knativeservings) -eq 0 ]]' || return 1
 
   # Install Knative Serving
   cat <<-EOF | oc apply -f -
