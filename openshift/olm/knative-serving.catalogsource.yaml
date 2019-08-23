@@ -138,21 +138,29 @@ data:
         description: |
           The Red Hat Serverless Operator provides a collection of API's to
           install various "serverless" services.
+
           # Knative Serving
+
           Knative Serving builds on Kubernetes to support deploying and
           serving of serverless applications and functions. Serving is easy
           to get started with and scales to support advanced scenarios. The
           Knative Serving project provides middleware primitives that
           enable:
+
           - Rapid deployment of serverless containers
           - Automatic scaling up and down to zero
           - Routing and network programming for Istio components
           - Point-in-time snapshots of deployed code and configurations
+
           ## Prerequisites
+
           ### Istio
+
           Knative requires Istio. A minimal Maistra ControlPlane can be
           installed using the Maistra operator.
+
           ## Further Information
+
           For documentation on using Knative Serving, see the
           [serving section](https://www.knative.dev/docs/serving/) of the
           [Knative documentation site](https://www.knative.dev/docs).
@@ -192,6 +200,12 @@ data:
                 resources:
                 - deployments
                 - replicasets
+                verbs:
+                - "*"
+              - apiGroups:
+                - apiextensions.k8s.io
+                resources:
+                - customresourcedefinitions
                 verbs:
                 - "*"
               - apiGroups:
@@ -254,11 +268,27 @@ data:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.name
+                      - name: NAMESPACE
+                        valueFrom:
+                          fieldRef:
+                            fieldPath: metadata.namespace
                       - name: OPERATOR_NAME
                         value: knative-serving-operator
-                      image: quay.io/openshift-knative/knative-serving-operator:v0.7.1-TP1-02
-                      args:
-                        - --filename=https://raw.githubusercontent.com/openshift/knative-serving/release-v0.7.1/openshift/release/knative-serving-v0.7.1.yaml
+                      - name: IMAGE_QUEUE
+                        value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-queue
+                      - name: IMAGE_activator
+                        value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-activator
+                      - name: IMAGE_autoscaler
+                        value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-autoscaler
+                      - name: IMAGE_controller
+                        value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-controller
+                      - name: IMAGE_networking-certmanager
+                        value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-certmanager
+                      - name: IMAGE_networking-istio
+                        value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-istio
+                      - name: IMAGE_webhook
+                        value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-webhook
+                      image: quay.io/openshift-knative/knative-serving-operator:v0.7.1-TP1-03
                       imagePullPolicy: Always
                       name: knative-serving-operator
                       resources: {}
@@ -277,7 +307,7 @@ data:
                     serviceAccountName: knative-openshift-ingress
                     containers:
                       - name: knative-openshift-ingress
-                        image: quay.io/openshift-knative/knative-openshift-ingress:v0.0.6
+                        image: quay.io/openshift-knative/knative-openshift-ingress:v0.0.7
                         command:
                         - knative-openshift-ingress
                         imagePullPolicy: Always
