@@ -185,7 +185,7 @@ function install_knative(){
 
   # Install CatalogSource in OLM namespace
   oc apply -n $OLM_NAMESPACE -f knative-serving.catalogsource-ci.yaml
-  timeout 900 '[[ $(oc get pods -n $OLM_NAMESPACE | grep -c knative) -eq 0 ]]' || return 1
+  timeout 900 '[[ $(oc get pods -n $OLM_NAMESPACE | grep -c serverless) -eq 0 ]]' || return 1
   wait_until_pods_running $OLM_NAMESPACE
 
   # Deploy Serverless Operator
