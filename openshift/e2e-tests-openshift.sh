@@ -139,7 +139,7 @@ spec:
 EOF
 
   # Wait for the istio-operator pod to appear
-  timeout 900 '[[ $(oc get pods -n istio-system | grep -c istio-operator) -eq 0 ]]' || return 1
+  timeout 900 '[[ $(oc get pods -n openshift-operators | grep -c istio-operator) -eq 0 ]]' || return 1
 
   # Wait until the Operator pod is up and running
   wait_until_pods_running openshift-operators || return 1
