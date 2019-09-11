@@ -15,7 +15,6 @@ readonly TEST_NAMESPACE=serving-tests
 readonly TEST_NAMESPACE_ALT=serving-tests-alt
 readonly SERVING_NAMESPACE=knative-serving
 readonly TARGET_IMAGE_PREFIX="$INTERNAL_REGISTRY/$SERVING_NAMESPACE/knative-serving-"
-readonly MAISTRA_VERSION="0.12"
 readonly OLM_NAMESPACE="openshift-operator-lifecycle-manager"
 
 env
@@ -80,20 +79,73 @@ function timeout() {
 }
 
 function install_istio(){
-  header "Installing Istio"
+  header "Installing ServiceMesh"
 
-  # Install the Maistra Operator
-  oc new-project istio-operator
-  oc new-project istio-system
-  oc apply -n istio-operator -f https://raw.githubusercontent.com/Maistra/istio-operator/maistra-${MAISTRA_VERSION}/deploy/maistra-operator.yaml
+  # Install the ServiceMesh Operator
+  cat <<EOF | oc apply -f -
+apiVersion: operators.coreos.com/v1
+kind: CatalogSourceConfig
+metadata:
+  name: ci-operators
+  namespace: openshift-marketplace
+spec:
+  targetNamespace: openshift-operators
+  packages: elasticsearch-operator,jaeger-product,kiali-ossm,servicemeshoperator
+  source: redhat-operators
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: elasticsearch-operator
+  namespace: openshift-operators
+spec:
+  channel: preview
+  name: elasticsearch-operator
+  source: ci-operators
+  sourceNamespace: openshift-operators
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: jaeger-product
+  namespace: openshift-operators
+spec:
+  channel: stable
+  name: jaeger-product
+  source: ci-operators
+  sourceNamespace: openshift-operators
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: kiali-ossm
+  namespace: openshift-operators
+spec:
+  channel: stable
+  name: kiali-ossm
+  source: ci-operators
+  sourceNamespace: openshift-operators
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: servicemeshoperator
+  namespace: openshift-operators
+spec:
+  channel: "1.0"
+  name: servicemeshoperator
+  source: ci-operators
+  sourceNamespace: openshift-operators
+EOF
+
+  # Wait for the istio-operator pod to appear
+  timeout 900 '[[ $(oc get pods -n openshift-operators | grep -c istio-operator) -eq 0 ]]' || return 1
 
   # Wait until the Operator pod is up and running
-  wait_until_pods_running istio-operator || return 1
+  wait_until_pods_running openshift-operators || return 1
 
-  # Workaround for MAISTRA-670
-  oc delete validatingwebhookconfiguration istio-operator.servicemesh-resources.maistra.io
-
-  # Deploy Istio
+  # Deploy ServiceMesh
+  oc new-project istio-system
   cat <<EOF | oc apply -f -
 apiVersion: maistra.io/v1
 kind: ServiceMeshControlPlane
@@ -108,6 +160,8 @@ spec:
         autoInject: disabled
       omitSidecarInjectorConfigMap: true
       disablePolicyChecks: false
+      defaultPodDisruptionBudget:
+        enabled: false
     istio_cni:
       enabled: true
     gateways:
@@ -127,7 +181,7 @@ spec:
             port: 15020
           - name: http2
             port: 80
-            targetPort: 80
+            targetPort: 8080
           - name: https
             port: 443
     mixer:
@@ -137,7 +191,6 @@ spec:
       telemetry:
         enabled: false
     pilot:
-      # disable autoscaling for use in smaller environments
       autoscaleEnabled: false
       sidecar: false
     kiali:
@@ -155,6 +208,7 @@ apiVersion: maistra.io/v1
 kind: ServiceMeshMemberRoll
 metadata:
   name: default
+  namespace: istio-system
 spec:
   members:
   - serving-tests
@@ -170,7 +224,7 @@ EOF
 
   wait_until_pods_running istio-system
 
-  header "Istio Installed successfully"
+  header "ServiceMesh installed successfully"
 }
 
 function install_knative(){
