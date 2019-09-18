@@ -1170,6 +1170,9 @@ spec:
   - name: v1alpha1
     served: true
     storage: true
+  - name: v1beta1
+    served: true
+    storage: false
   names:
     kind: Configuration
     plural: configurations
@@ -1211,6 +1214,9 @@ spec:
   - name: v1alpha1
     served: true
     storage: true
+  - name: v1beta1
+    served: true
+    storage: false
   names:
     kind: Revision
     plural: revisions
@@ -1254,6 +1260,9 @@ spec:
   - name: v1alpha1
     served: true
     storage: true
+  - name: v1beta1
+    served: true
+    storage: false
   names:
     kind: Route
     plural: routes
@@ -1291,6 +1300,9 @@ spec:
   - name: v1alpha1
     served: true
     storage: true
+  - name: v1beta1
+    served: true
+    storage: false
   names:
     kind: Service
     plural: services
