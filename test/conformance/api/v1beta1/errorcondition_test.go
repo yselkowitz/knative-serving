@@ -116,14 +116,15 @@ func TestContainerErrorMsg(t *testing.T) {
 		t.Fatalf("Failed to validate revision state: %s", err)
 	}
 
-	t.Log("When the revision has error condition, logUrl should be populated.")
-	logURL, err := getLogURLFromRevision(clients, revisionName)
-	if err != nil {
-		t.Fatalf("Failed to get logUrl from revision %s: %v", revisionName, err)
-	}
-
-	// TODO(jessiezcc): actually validate the logURL, but requires kibana setup
-	t.Logf("LogURL: %s", logURL)
+	// TODO Jira: SRVKS-271
+	//t.Log("When the revision has error condition, logUrl should be populated.")
+	//logURL, err := getLogURLFromRevision(clients, revisionName)
+	//if err != nil {
+	//	t.Fatalf("Failed to get logUrl from revision %s: %v", revisionName, err)
+	//}
+	//
+	//// TODO(jessiezcc): actually validate the logURL, but requires kibana setup
+	//t.Logf("LogURL: %s", logURL)
 
 	t.Log("Checking to ensure Route is in desired state")
 	err = v1b1test.CheckRouteState(clients.ServingBetaClient, names.Route, v1b1test.IsRouteNotReady)
@@ -224,10 +225,11 @@ func TestContainerExitingMsg(t *testing.T) {
 				t.Fatalf("Failed to validate revision state: %s", err)
 			}
 
-			t.Log("When the revision has error condition, logUrl should be populated.")
-			if _, err = getLogURLFromRevision(clients, revisionName); err != nil {
-				t.Fatalf("Failed to get logUrl from revision %s: %v", revisionName, err)
-			}
+			// TODO Jira: SRVKS-271
+			//t.Log("When the revision has error condition, logUrl should be populated.")
+			//if _, err = getLogURLFromRevision(clients, revisionName); err != nil {
+			//	t.Fatalf("Failed to get logUrl from revision %s: %v", revisionName, err)
+			//}
 		})
 	}
 }
