@@ -22,8 +22,11 @@ readonly TARGET_IMAGE_PREFIX="$INTERNAL_REGISTRY/$SERVING_NAMESPACE/knative-serv
 # ref: https://jira.coreos.com/browse/OLM-1190
 if [ ${HOSTNAME} = "e2e-aws-ocp-41" ]; then
   readonly OLM_NAMESPACE="openshift-operator-lifecycle-manager"
+  readonly INSTALL_PLAN_APPROVAL="Manual"
 else
   readonly OLM_NAMESPACE="openshift-marketplace"
+  # Skip rolling upgrades on OCP 4.2 because of https://jira.coreos.com/browse/OLM-1299
+  readonly INSTALL_PLAN_APPROVAL="Automatic"
 fi
 
 env
@@ -185,12 +188,14 @@ spec:
   sourceNamespace: $OLM_NAMESPACE
   name: ${NAME}
   channel: techpreview
-  installPlanApproval: Manual
+  installPlanApproval: ${INSTALL_PLAN_APPROVAL}
   startingCSV: ${UPGRADE_FROM_CSV}
 EOF
 
-  # Approve the initial installplan automatically 
-  approve_csv $UPGRADE_FROM_CSV
+  # Approve the initial installplan automatically
+  if [ $INSTALL_PLAN_APPROVAL = "Manual" ]; then
+    approve_csv $UPGRADE_FROM_CSV
+  fi
 }
 
 function approve_csv(){
@@ -409,7 +414,10 @@ failed=0
 (( !failed )) && create_test_resources_openshift || failed=1
 
 # Rolling upgrade must be run before E2E tests because they upgrade to the latest version
-(( !failed )) && run_rolling_upgrade_tests || failed=1
+# Skip rolling upgrades on OCP 4.2 due to OLM-1299
+if [ ${HOSTNAME} = "e2e-aws-ocp-41" ]; then
+  (( !failed )) && run_rolling_upgrade_tests || failed=1
+fi
 
 (( !failed )) && run_e2e_tests || failed=1
 
