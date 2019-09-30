@@ -283,20 +283,6 @@ function run_e2e_tests(){
   return $failed
 }
 
-function serving_pods_newer_than_csv(){
-  local csv=$1
-  local pod_timestamps="$(oc get pods -n $SERVING_NAMESPACE -l name!=knative-openshift-ingress,name!=knative-serving-operator -o jsonpath='{.items[*].metadata.creationTimestamp}')"
-  local csv_succeeded_timestamp=$(oc get clusterserviceversion $csv -n $SERVING_NAMESPACE -o=jsonpath='{.status.conditions[?(@.phase=="Succeeded")].lastUpdateTime}')
-  csv_succeeded_timestamp=$(date -d $csv_succeeded_timestamp +%s)
-
-  # If any pod is older than the CSV timestamp return False
-  for t in $pod_timestamps; do
-    [[ $(date -d $t +%s) -le $csv_succeeded_timestamp ]] && echo "False" && return 1
-  done
-  
-  echo "True"
-}
-
 function run_rolling_upgrade_tests() {
     header "Running rolling upgrade tests"
     
@@ -320,12 +306,13 @@ function run_rolling_upgrade_tests() {
     PROBER_PID=$!
     echo "Prober PID is ${PROBER_PID}"
 
+    local serving_version=$(oc get knativeserving knative-serving -o=jsonpath="{.status.version}")
+
     local latest_csv=$(oc get configmaps serverless-operator -n $OLM_NAMESPACE -o jsonpath='{.data.packages}' | grep currentCSV | awk '{print $2}')
-    
     approve_csv $latest_csv || failed=1
     
-    # Wait for all Knative Serving pods to be upgraded
-    timeout 300 "[[ \$(serving_pods_newer_than_csv $latest_csv) != True ]]" || return 1
+    # Wait for the new KnativeServing to be ready
+    timeout 900 '[[ $(oc get knativeserving knative-serving -o=jsonpath="{.status.version}") == $serving_version || $(oc get knativeserving knative-serving -o=jsonpath="{.status.conditions[?(@.type==\"Ready\")].status}") != True ]]' || return 1
 
     echo "Running postupgrade tests"
     report_go_test -tags=postupgrade -timeout=${TIMEOUT_TESTS} ./test/upgrade \
