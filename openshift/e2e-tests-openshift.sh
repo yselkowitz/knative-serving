@@ -202,15 +202,15 @@ function approve_csv(){
   local csv_version=$1
 
   # Wait for the installplan to be available
-  timeout 300 "[[ \$(oc get InstallPlan -n $SERVING_NAMESPACE | grep -c $csv_version) -eq 0 ]]" || return 1
+  timeout 300 '[[ $(oc get InstallPlan -n $SERVING_NAMESPACE | grep -c $csv_version) -eq 0 ]]' || return 1
 
   local install_plan=$(oc get InstallPlan -n $SERVING_NAMESPACE | grep $csv_version | awk '{ print $1}')
   oc get InstallPlan $install_plan -n $SERVING_NAMESPACE -o yaml | sed 's/\(.*approved:\) false/\1 true/' | oc replace -f -
   
   # Wait for the installedCSV to be the new one
-  timeout 300 "[[ \$(oc get Subscription -n $SERVING_NAMESPACE -o jsonpath='{.items[0].status.installedCSV}' | grep -c $csv_version) -eq 0 ]]" || return 1
+  timeout 300 '[[ $(oc get Subscription -n $SERVING_NAMESPACE -o jsonpath="{.items[0].status.installedCSV}" | grep -c $csv_version) -eq 0 ]]' || return 1
 
-  timeout 300 "[[ \$(oc get ClusterServiceVersion $csv_version -n $SERVING_NAMESPACE -o jsonpath='{.status.phase}') != Succeeded ]]" || return 1
+  timeout 300 '[[ $(oc get ClusterServiceVersion $csv_version -n $SERVING_NAMESPACE -o jsonpath="{.status.phase}") != Succeeded ]]' || return 1
 }
 
 function tag_core_images(){
