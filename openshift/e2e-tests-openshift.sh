@@ -5,6 +5,7 @@ source $(dirname $0)/release/resolve.sh
 
 set -x
 
+readonly UPGRADE_FROM_CSV=serverless-operator.v1.0.0 # Previous CSV version from which we upgrade to latest
 readonly K8S_CLUSTER_OVERRIDE=$(oc config current-context | awk -F'/' '{print $2}')
 readonly API_SERVER=$(oc config view --minify | grep server | awk -F'//' '{print $2}' | awk -F':' '{print $1}')
 readonly INTERNAL_REGISTRY="${INTERNAL_REGISTRY:-"image-registry.openshift-image-registry.svc:5000"}"
@@ -21,8 +22,11 @@ readonly TARGET_IMAGE_PREFIX="$INTERNAL_REGISTRY/$SERVING_NAMESPACE/knative-serv
 # ref: https://jira.coreos.com/browse/OLM-1190
 if [ ${HOSTNAME} = "e2e-aws-ocp-41" ]; then
   readonly OLM_NAMESPACE="openshift-operator-lifecycle-manager"
+  readonly INSTALL_PLAN_APPROVAL="Manual"
 else
   readonly OLM_NAMESPACE="openshift-marketplace"
+  # Skip rolling upgrades on OCP 4.2 because of https://jira.coreos.com/browse/OLM-1299
+  readonly INSTALL_PLAN_APPROVAL="Automatic"
 fi
 
 env
@@ -184,7 +188,29 @@ spec:
   sourceNamespace: $OLM_NAMESPACE
   name: ${NAME}
   channel: techpreview
+  installPlanApproval: ${INSTALL_PLAN_APPROVAL}
+  startingCSV: ${UPGRADE_FROM_CSV}
 EOF
+
+  # Approve the initial installplan automatically
+  if [ $INSTALL_PLAN_APPROVAL = "Manual" ]; then
+    approve_csv $UPGRADE_FROM_CSV
+  fi
+}
+
+function approve_csv(){
+  local csv_version=$1
+
+  # Wait for the installplan to be available
+  timeout 300 '[[ $(oc get InstallPlan -n $SERVING_NAMESPACE | grep -c $csv_version) -eq 0 ]]' || return 1
+
+  local install_plan=$(oc get InstallPlan -n $SERVING_NAMESPACE | grep $csv_version | awk '{ print $1}')
+  oc get InstallPlan $install_plan -n $SERVING_NAMESPACE -o yaml | sed 's/\(.*approved:\) false/\1 true/' | oc replace -f -
+  
+  # Wait for the installedCSV to be the new one
+  timeout 300 '[[ $(oc get Subscription -n $SERVING_NAMESPACE -o jsonpath="{.items[0].status.installedCSV}" | grep -c $csv_version) -eq 0 ]]' || return 1
+
+  timeout 300 '[[ $(oc get ClusterServiceVersion $csv_version -n $SERVING_NAMESPACE -o jsonpath="{.status.phase}") != Succeeded ]]' || return 1
 }
 
 function tag_core_images(){
@@ -207,6 +233,9 @@ function create_test_resources_openshift() {
   tag_core_images tests-resolved.yaml
 
   oc apply -f tests-resolved.yaml
+
+  # Delete redundant job - default domains not used
+  oc delete job default-domain -n $SERVING_NAMESPACE
 
   echo ">> Ensuring pods in test namespaces can access test images"
   oc policy add-role-to-group system:image-puller system:serviceaccounts:${TEST_NAMESPACE} --namespace=${SERVING_NAMESPACE}
@@ -252,6 +281,50 @@ function run_e2e_tests(){
     --resolvabledomain || failed=1
 
   return $failed
+}
+
+function run_rolling_upgrade_tests() {
+    header "Running rolling upgrade tests"
+    
+    local TIMEOUT_TESTS="20m"
+    failed=0
+
+    report_go_test -tags=preupgrade -timeout=${TIMEOUT_TESTS} ./test/upgrade \
+    --dockerrepo "${INTERNAL_REGISTRY}/${SERVING_NAMESPACE}" \
+    --kubeconfig $KUBECONFIG || failed=1
+
+    echo "Starting prober test"
+
+    # Make prober send requests more often compared with upstream where it is 1/second
+    sed -e 's/\(.*requestInterval =\).*/\1 200 * time.Millisecond/' -i vendor/knative.dev/pkg/test/spoof/spoof.go
+
+    rm -f /tmp/prober-signal
+    report_go_test -tags=probe -timeout=${TIMEOUT_TESTS} ./test/upgrade \
+    --dockerrepo "${INTERNAL_REGISTRY}/${SERVING_NAMESPACE}" \
+    --kubeconfig $KUBECONFIG &
+
+    PROBER_PID=$!
+    echo "Prober PID is ${PROBER_PID}"
+
+    local serving_version=$(oc get knativeserving knative-serving -o=jsonpath="{.status.version}")
+
+    local latest_csv=$(oc get configmaps serverless-operator -n $OLM_NAMESPACE -o jsonpath='{.data.packages}' | grep currentCSV | awk '{print $2}')
+    approve_csv $latest_csv || failed=1
+    
+    # Wait for the new KnativeServing to be ready
+    timeout 900 '[[ $(oc get knativeserving knative-serving -o=jsonpath="{.status.version}") == $serving_version || $(oc get knativeserving knative-serving -o=jsonpath="{.status.conditions[?(@.type==\"Ready\")].status}") != True ]]' || return 1
+
+    echo "Running postupgrade tests"
+    report_go_test -tags=postupgrade -timeout=${TIMEOUT_TESTS} ./test/upgrade \
+    --dockerrepo "${INTERNAL_REGISTRY}/${SERVING_NAMESPACE}" \
+    --kubeconfig $KUBECONFIG || failed=1
+
+    echo "done" > /tmp/prober-signal
+
+    echo "Waiting for prober test"
+    wait ${PROBER_PID}
+
+    return $failed
 }
 
 function delete_knative_openshift() {
@@ -326,6 +399,12 @@ failed=0
 (( !failed )) && install_knative || failed=1
 
 (( !failed )) && create_test_resources_openshift || failed=1
+
+# Rolling upgrade must be run before E2E tests because they upgrade to the latest version
+# Skip rolling upgrades on OCP 4.2 due to OLM-1299
+if [ ${HOSTNAME} = "e2e-aws-ocp-41" ]; then
+  (( !failed )) && run_rolling_upgrade_tests || failed=1
+fi
 
 (( !failed )) && run_e2e_tests || failed=1
 
