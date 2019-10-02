@@ -119,7 +119,7 @@ data:
             Provides a collection of API's to support deploying and serving
             of serverless applications and functions.
           repository: https://github.com/openshift-knative/serverless-operator
-          support: Red Hat
+          support: Red Hat, Inc.
         name: serverless-operator.v1.0.0
         namespace: placeholder
       spec:
@@ -408,7 +408,7 @@ data:
             Provides a collection of API's to support deploying and serving
             of serverless applications and functions.
           repository: https://github.com/openshift-knative/serverless-operator
-          support: Red Hat
+          support: Red Hat, Inc.
         name: serverless-operator.v1.1.0
         namespace: placeholder
       spec:
@@ -428,6 +428,8 @@ data:
           The Red Hat Serverless Operator provides a collection of API's to
           install various "serverless" services.
 
+          This is a **[Tech Preview release](https://access.redhat.com/support/offerings/techpreview)!**
+
           # Knative Serving
 
           Knative Serving builds on Kubernetes to support deploying and
@@ -440,6 +442,14 @@ data:
           - Automatic scaling up and down to zero
           - Routing and network programming for Istio components
           - Point-in-time snapshots of deployed code and configurations
+
+          ## Prerequisites
+
+          The Serverless Operator's provided APIs such as Knative Serving
+          have certain requirements with regards to the size of the underlying
+          cluster and a working installation of Service Mesh. See the [installation
+          section](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.1/html-single/serverless/index#installing-openshift-serverless)
+          of the Serverless documentation for more info.
 
           ## Further Information
 
@@ -571,7 +581,7 @@ data:
                         value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-istio
                       - name: IMAGE_webhook
                         value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-webhook
-                      image: quay.io/openshift-knative/knative-serving-operator:v0.8.1-1.1.0-01
+                      image: quay.io/openshift-knative/knative-serving-operator:v0.8.1-1.1.0-02
                       imagePullPolicy: Always
                       name: knative-serving-operator
                       resources: {}
@@ -677,7 +687,7 @@ data:
         - name: Source Repository
           url: https://github.com/openshift-knative/serverless-operator
         maintainers:
-        - email: knative@redhat.com
+        - email: serverless-support@redhat.com
           name: Serverless Team
         maturity: alpha
         provider:
