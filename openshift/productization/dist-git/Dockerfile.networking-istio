@@ -11,7 +11,7 @@ LABEL \
       name="openshift-serverless-1-tech-preview/serving-networking-istio-rhel8" \
       version="0.8.1" \
       summary="Red Hat OpenShift Serverless 1 Serving Networking Istio" \
-      maintainer="mthoemme@redhat.com" \
+      maintainer="wvanwinc@redhat.com" \
       description="Red Hat OpenShift Serverless 1 Serving Networking Istio" \
       io.k8s.display-name="Red Hat OpenShift Serverless 1 Serving Networking Istio"
 
