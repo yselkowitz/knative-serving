@@ -25,6 +25,7 @@ test-e2e:
 generate-dockerfiles:
 	./openshift/ci-operator/generate-dockerfiles.sh openshift/ci-operator/knative-images $(CORE_IMAGES)
 	./openshift/ci-operator/generate-dockerfiles.sh openshift/ci-operator/knative-test-images $(TEST_IMAGES)
+	./openshift/productization/generate-dockerfiles/gen_dockerfiles.sh openshift/productization/dist-git
 .PHONY: generate-dockerfiles
 
 # Generates a ci-operator configuration for a specific branch.
