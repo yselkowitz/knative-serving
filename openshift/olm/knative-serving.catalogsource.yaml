@@ -286,11 +286,13 @@ data:
                         value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-certmanager
                       - name: IMAGE_networking-istio
                         value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-istio
+                      - name: IMAGE_networking-nscert
+                        value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-nscert
                       - name: IMAGE_webhook
                         value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-webhook
-                      image: quay.io/openshift-knative/knative-serving-operator:v0.7.1-TP1-03
+                      image: quay.io/openshift-knative/knative-serving-operator:v0.8.1-1.1.0-04
                       args:
-                        - --filename=https://raw.githubusercontent.com/openshift/knative-serving/release-next/openshift/release/knative-serving-ci.yaml # remove this from individual release branches
+                        - --filename=https://raw.githubusercontent.com/openshift/knative-serving/release-v0.9.0/openshift/release/knative-serving-ci.yaml # remove this from individual release branches
                       imagePullPolicy: Always
                       name: knative-serving-operator
                       resources: {}

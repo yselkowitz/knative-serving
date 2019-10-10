@@ -14,3 +14,8 @@ else
 fi
 
 resolve_resources config/ "$output_file" "$image_prefix" "$tag"
+
+# append v1beta1 CRD definitions
+for yaml in config/v1/*.yaml; do
+    resolve_file "$yaml" "$output_file" "$image_prefix" "$tag"
+done
