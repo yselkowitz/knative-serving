@@ -280,13 +280,15 @@ data:
                         value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-activator
                       - name: IMAGE_autoscaler
                         value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-autoscaler
+                      - name: IMAGE_autoscaler-hpa
+                        value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-autoscaler-hpa
                       - name: IMAGE_controller
                         value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-controller
                       - name: IMAGE_networking-certmanager
                         value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-certmanager
                       - name: IMAGE_networking-istio
                         value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-istio
-                      - name: IMAGE_networking-nscert
+                      - name: IMAGE_networking-ns-cert
                         value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-nscert
                       - name: IMAGE_webhook
                         value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-webhook
