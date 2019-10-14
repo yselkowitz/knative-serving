@@ -4,7 +4,7 @@ COPY . .
 RUN go build -o /tmp/$SUBCOMPONENT ./cmd/$GO_PACKAGE
 
 FROM ubi8:8-released
-COPY --from=builder /tmp/$SUBCOMPONENT /usr/bin/$SUBCOMPONENT
+COPY --from=builder /tmp/$SUBCOMPONENT /ko-app/$SUBCOMPONENT
 
 LABEL \
       com.redhat.component="openshift-serverless-1-tech-preview-serving-$SUBCOMPONENT-rhel8-container" \
@@ -15,4 +15,4 @@ LABEL \
       description="Red Hat OpenShift Serverless 1 Serving $CAPITALIZED_SUBCOMPONENT" \
       io.k8s.display-name="Red Hat OpenShift Serverless 1 Serving $CAPITALIZED_SUBCOMPONENT"
 
-ENTRYPOINT ["/usr/bin/$SUBCOMPONENT"]
+ENTRYPOINT ["/ko-app/$SUBCOMPONENT"]
