@@ -254,29 +254,6 @@ function run_e2e_tests(){
   return $failed
 }
 
-function delete_knative_openshift() {
-  echo ">> Bringing down Knative Serving"
-  oc delete --ignore-not-found=true -n $OLM_NAMESPACE -f knative-serving.catalogsource-ci.yaml
-  oc delete project $SERVING_NAMESPACE
-}
-
-function delete_test_resources_openshift() {
-  echo ">> Removing test resources (test/config/)"
-  oc delete --ignore-not-found=true -f tests-resolved.yaml
-}
-
-function delete_test_namespace(){
-  echo ">> Deleting test namespaces"
-  oc delete project $TEST_NAMESPACE
-  oc delete project $TEST_NAMESPACE_ALT
-}
-
-function teardown() {
-  delete_test_namespace
-  delete_test_resources_openshift
-  delete_knative_openshift
-}
-
 function dump_openshift_olm_state(){
   echo ">>> subscriptions.operators.coreos.com:"
   oc get subscriptions.operators.coreos.com -o yaml --all-namespaces   # This is for status checking.
@@ -334,8 +311,6 @@ failed=0
 (( failed )) && dump_openshift_olm_state
 
 (( failed )) && dump_openshift_ingress_state
-
-teardown
 
 (( failed )) && exit 1
 
