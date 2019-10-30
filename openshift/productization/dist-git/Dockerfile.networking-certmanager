@@ -10,9 +10,9 @@ LABEL \
       com.redhat.component="openshift-serverless-1-tech-preview-serving-networking-certmanager-rhel8-container" \
       name="openshift-serverless-1-tech-preview/serving-networking-certmanager-rhel8" \
       version="0.9.0" \
-      summary="Red Hat OpenShift Serverless 1 Serving Networking Certmanager" \
+      summary="Red Hat OpenShift Serverless 1 Serving Networking CertManager" \
       maintainer="mthoemme@redhat.com" \
-      description="Red Hat OpenShift Serverless 1 Serving Networking Certmanager" \
-      io.k8s.display-name="Red Hat OpenShift Serverless 1 Serving Networking Certmanager"
+      description="Red Hat OpenShift Serverless 1 Serving Networking CertManager" \
+      io.k8s.display-name="Red Hat OpenShift Serverless 1 Serving Networking CertManager"
 
 ENTRYPOINT ["/usr/bin/networking-certmanager"]
