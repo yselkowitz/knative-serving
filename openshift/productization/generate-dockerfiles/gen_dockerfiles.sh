@@ -2,12 +2,18 @@
 
 target_dir=$1
 
-component=serving
-for subcomponent in controller autoscaler activator networking-istio networking-certmanager webhook queue; do
-    CAPITALIZED_COMPONENT=$(echo -e "$component" | sed -r 's/\<./\U&/g') \
-    CAPITALIZED_SUBCOMPONENT=$(echo -e "$subcomponent" | sed -r 's/\<./\U&/g') \
-    GO_PACKAGE=$(echo -e "$subcomponent" | sed -r 's/-/\//g') \
-    COMPONENT=$component \
-    SUBCOMPONENT=$subcomponent \
-    envsubst < openshift/productization/generate-dockerfiles/Dockerfile.in > ${target_dir}/Dockerfile.$subcomponent
+component=Serving
+
+for subcomponent in Activator Autoscaler Autoscaler-HPA Controller \
+                    Networking-Istio Networking-CertManager Networking-NSCert \
+                    Queue Webhook; \
+do
+    export CAPITALIZED_COMPONENT=$component
+    export CAPITALIZED_SUBCOMPONENT=$(echo -e "$subcomponent" | sed -e 's/-/ /g')
+    export COMPONENT=$(echo -e "$component" | sed -e 's/\(.*\)/\L\1/g')
+    export SUBCOMPONENT=$(echo -e "$subcomponent" | sed -e 's/\(.*\)/\L\1/g')
+    export GO_PACKAGE=$(echo -e "$SUBCOMPONENT" | sed -e 's/networking-/networking\//g')
+    envsubst \
+      < openshift/productization/generate-dockerfiles/Dockerfile.in \
+      > ${target_dir}/Dockerfile.$SUBCOMPONENT
 done
