@@ -88,6 +88,18 @@ function timeout() {
 }
 
 function install_knative(){
+  # OLM doesn't support dependency resolution on 4.1 yet. Install the operator manually.
+  if [ ${HOSTNAME} = "e2e-aws-ocp-41" ]; then
+    # Install the ServiceMesh Operator
+    oc apply -f openshift/servicemesh/operator-install.yaml
+
+    # Wait for the istio-operator pod to appear
+    timeout 900 '[[ $(oc get pods -n openshift-operators | grep -c istio-operator) -eq 0 ]]' || return 1
+
+    # Wait until the Operator pod is up and running
+    wait_until_pods_running openshift-operators || return 1
+  fi
+
   header "Installing Knative"
 
   oc new-project $SERVING_NAMESPACE
