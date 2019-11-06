@@ -135,6 +135,17 @@ data:
               displayName: Version
               path: version
             version: v1alpha1
+          required:
+          - description: A list of namespaces in Service Mesh
+            displayName: Istio Service Mesh Member Roll
+            kind: ServiceMeshMemberRoll
+            name: servicemeshmemberrolls.maistra.io
+            version: v1
+          - description: An Istio control plane installation
+            displayName: Istio Service Mesh Control Plane
+            kind: ServiceMeshControlPlane
+            name: servicemeshcontrolplanes.maistra.io
+            version: v1
         description: |
           The Red Hat Serverless Operator provides a collection of API's to
           install various "serverless" services.
@@ -907,6 +918,12 @@ data:
                 - knativeservings/finalizers
                 verbs:
                 - '*'
+              - apiGroups:
+                - maistra.io
+                resources:
+                - servicemeshmemberrolls
+                verbs:
+                - '*'
               serviceAccountName: knative-openshift-ingress
             deployments:
             - name: knative-serving-operator
@@ -953,7 +970,7 @@ data:
                         value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-istio
                       - name: IMAGE_webhook
                         value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-webhook
-                      image: quay.io/openshift-knative/knative-serving-operator:v0.9.0-1.2.0-01
+                      image: quay.io/openshift-knative/knative-serving-operator:v0.9.0-1.2.0-02
                       imagePullPolicy: Always
                       name: knative-serving-operator
                       resources: {}
@@ -972,7 +989,7 @@ data:
                     serviceAccountName: knative-openshift-ingress
                     containers:
                       - name: knative-openshift-ingress
-                        image: quay.io/openshift-knative/knative-openshift-ingress:v0.0.9
+                        image: quay.io/openshift-knative/knative-openshift-ingress:v0.0.10
                         command:
                         - knative-openshift-ingress
                         imagePullPolicy: Always
