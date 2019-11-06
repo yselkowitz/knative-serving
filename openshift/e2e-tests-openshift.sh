@@ -163,22 +163,12 @@ EOF
 function deploy_serverless_operator(){
   local NAME="serverless-operator"
 
-  if oc get crd operatorgroups.operators.coreos.com >/dev/null 2>&1; then
-    cat <<-EOF | oc apply -f -
-apiVersion: operators.coreos.com/v1
-kind: OperatorGroup
-metadata:
-  name: ${NAME}
-  namespace: ${SERVING_NAMESPACE}
-EOF
-  fi
-
   cat <<-EOF | oc apply -f -
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
   name: ${NAME}-subscription
-  namespace: ${SERVING_NAMESPACE}
+  namespace: openshift-operators
 spec:
   source: ${NAME}
   sourceNamespace: $OLM_NAMESPACE
