@@ -20,7 +20,7 @@ readonly TARGET_IMAGE_PREFIX="$INTERNAL_REGISTRY/$SERVING_NAMESPACE/knative-serv
 
 # The OLM global namespace was moved to openshift-marketplace since v4.2
 # ref: https://jira.coreos.com/browse/OLM-1190
-if [ ${HOSTNAME} = "e2e-aws-ocp-41" ]; then
+if [[ ${HOSTNAME} = e2e-aws-ocp-41* ]]; then
   readonly OLM_NAMESPACE="openshift-operator-lifecycle-manager"
 else
   readonly OLM_NAMESPACE="openshift-marketplace"
@@ -89,7 +89,7 @@ function timeout() {
 
 function install_knative(){
   # OLM doesn't support dependency resolution on 4.1 yet. Install the operator manually.
-  if [ ${HOSTNAME} = "e2e-aws-ocp-41" ]; then
+  if [[ ${HOSTNAME} = e2e-aws-ocp-41* ]]; then
     # Install the ServiceMesh Operator
     oc apply -f openshift/servicemesh/operator-install.yaml
 
@@ -198,21 +198,21 @@ function run_e2e_tests(){
   failed=0
 
   report_go_test \
-    -v -tags=e2e -count=1 -timeout=35m -short -parallel=1 \
+    -v -tags=e2e -count=1 -timeout=35m -short -parallel=3 \
     ./test/e2e \
     --kubeconfig "$KUBECONFIG" \
     --dockerrepo "${INTERNAL_REGISTRY}/${SERVING_NAMESPACE}" \
     --resolvabledomain || failed=1
 
   report_go_test \
-    -v -tags=e2e -count=1 -timeout=35m -parallel=1 \
+    -v -tags=e2e -count=1 -timeout=35m -parallel=3 \
     ./test/conformance/runtime/... \
     --kubeconfig "$KUBECONFIG" \
     --dockerrepo "${INTERNAL_REGISTRY}/${SERVING_NAMESPACE}" \
     --resolvabledomain || failed=1
 
   report_go_test \
-    -v -tags=e2e -count=1 -timeout=35m -parallel=1 \
+    -v -tags=e2e -count=1 -timeout=35m -parallel=3 \
     ./test/conformance/api/v1alpha1/... \
     --kubeconfig "$KUBECONFIG" \
     --dockerrepo "${INTERNAL_REGISTRY}/${SERVING_NAMESPACE}" \
