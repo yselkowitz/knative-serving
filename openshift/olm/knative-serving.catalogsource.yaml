@@ -885,6 +885,12 @@ data:
                 verbs:
                 - "*"
               - apiGroups:
+                - networking.k8s.io
+                resources:
+                - networkpolicies
+                verbs:
+                - "*"
+              - apiGroups:
                 - monitoring.coreos.com
                 resources:
                 - servicemonitors
