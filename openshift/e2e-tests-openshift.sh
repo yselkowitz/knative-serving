@@ -20,7 +20,7 @@ readonly TARGET_IMAGE_PREFIX="$INTERNAL_REGISTRY/$SERVING_NAMESPACE/knative-serv
 
 # The OLM global namespace was moved to openshift-marketplace since v4.2
 # ref: https://jira.coreos.com/browse/OLM-1190
-if [ ${HOSTNAME} = "e2e-aws-ocp-41" ]; then
+if [[ ${HOSTNAME} = e2e-aws-ocp-41* ]]; then
   readonly OLM_NAMESPACE="openshift-operator-lifecycle-manager"
 else
   readonly OLM_NAMESPACE="openshift-marketplace"
@@ -89,7 +89,7 @@ function timeout() {
 
 function install_knative(){
   # OLM doesn't support dependency resolution on 4.1 yet. Install the operator manually.
-  if [ ${HOSTNAME} = "e2e-aws-ocp-41" ]; then
+  if [[ ${HOSTNAME} = e2e-aws-ocp-41* ]]; then
     # Install the ServiceMesh Operator
     oc apply -f openshift/servicemesh/operator-install.yaml
 
