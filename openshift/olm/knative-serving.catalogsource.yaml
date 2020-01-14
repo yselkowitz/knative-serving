@@ -169,14 +169,14 @@ data:
           capabilities: Seamless Upgrades
           categories: Networking,Integration & Delivery,Cloud Provider,Developer Tools
           certified: "false"
-          containerImage: quay.io/openshift-knative/serverless-operator:v1.2.0
+          containerImage: quay.io/openshift-knative/serverless-operator:v1.4.0
           createdAt: "2019-07-27T17:00:00Z"
           description: |-
             Provides a collection of API's based on Knative to support deploying and serving
             of serverless applications and functions.
           repository: https://github.com/openshift-knative/serverless-operator
           support: Red Hat, Inc.
-        name: serverless-operator.v1.2.0
+        name: serverless-operator.v1.4.0
         namespace: placeholder
       spec:
         apiservicedefinitions: {}
@@ -367,7 +367,7 @@ data:
                         value: registry.svc.ci.openshift.org/${OPENSHIFT_BUILD_NAMESPACE}/stable:knative-serving-istio
                       - name: IMAGE_webhook
                         value: registry.svc.ci.openshift.org/${OPENSHIFT_BUILD_NAMESPACE}/stable:knative-serving-webhook
-                      image: quay.io/openshift-knative/knative-serving-operator:v0.9.0-1.2.0-05
+                      image: registry.svc.ci.openshift.org/openshift/openshift-serverless-v1.3.0:knative-serving-operator
                       args:
                         - --filename=https://raw.githubusercontent.com/openshift/knative-serving/release-next/openshift/release/knative-serving-ci.yaml # remove this from individual release branches
                       imagePullPolicy: Always
@@ -388,7 +388,7 @@ data:
                     serviceAccountName: knative-openshift-ingress
                     containers:
                       - name: knative-openshift-ingress
-                        image: quay.io/openshift-knative/knative-openshift-ingress:v0.1.2
+                        image: registry.svc.ci.openshift.org/openshift/openshift-serverless-v1.3.0:knative-openshift-ingress
                         command:
                         - knative-openshift-ingress
                         imagePullPolicy: Always
@@ -480,12 +480,12 @@ data:
         maturity: alpha
         provider:
           name: Red Hat, Inc.
-        version: 1.2.0
+        version: 1.4.0
   packages: |-
     - packageName: serverless-operator
       channels:
       - name: techpreview
-        currentCSV: serverless-operator.v1.2.0
+        currentCSV: serverless-operator.v1.4.0
 ---
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
