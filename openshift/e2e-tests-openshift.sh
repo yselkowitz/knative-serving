@@ -184,6 +184,19 @@ function run_e2e_tests(){
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --resolvabledomain "$(ingress_class)" || failed=1
 
+  # Prevent HPA from scaling to make the tests more stable
+  oc -n "$SERVING_NAMESPACE" patch hpa activator --patch '{"spec":{"maxReplicas":2}}' || return 1
+
+  # Use sed as the -spoofinterval parameter is not available yet
+  sed "s/\(.*requestInterval =\).*/\1 10 * time.Millisecond/" -i vendor/knative.dev/pkg/test/spoof/spoof.go
+
+  report_go_test \
+    -v -tags=e2e -count=1 -timeout=10m -parallel=1 \
+    ./test/ha \
+    --kubeconfig "$KUBECONFIG" \
+    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
+    --resolvabledomain "$(ingress_class)"|| failed=1
+
   return $failed
 }
 
