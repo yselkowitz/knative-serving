@@ -111,45 +111,94 @@ function update_csv(){
   # release-next branch keeps updating the latest manifest in knative-serving-ci.yaml for serving resources.
   # see: https://github.com/openshift/knative-serving/blob/release-next/openshift/release/knative-serving-ci.yaml
   # So mount the manifest and use it by KO_DATA_PATH env value.
-  cp $SERVING_DIR/openshift/config_map.patch ./config_map.patch
-  patch -u ${CSV} < config_map.patch
+
+  cat << EOF | yq write --inplace --script - $CSV || return $?
+- command: update
+  path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers.(name==knative-operator).env[+]
+  value:
+    name: "KO_DATA_PATH"
+    value: "/tmp/knative/"
+- command: update
+  path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers.(name==knative-operator).volumeMounts[+]
+  value:
+    name: "serving-manifest"
+    mountPath: "/tmp/knative/knative-serving/0.18.2"
+- command: update
+  path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes[+]
+  value:
+    name: "serving-manifest"
+    configMap:
+      name: "ko-data-serving"
+      items:
+        - key: "knative-serving-ci.yaml"
+          path: "knative-serving-ci.yaml"
+# eventing
+- command: update
+  path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers.(name==knative-operator).volumeMounts[+]
+  value:
+    name: "eventing-manifest"
+    mountPath: "/tmp/knative/knative-eventing/0.18.2"
+- command: update
+  path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes[+]
+  value:
+    name: "eventing-manifest"
+    configMap:
+      name: "ko-data-eventing"
+      items:
+        - key: "knative-eventing-ci.yaml"
+          path: "knative-eventing-ci.yaml"
+# kourier
+- command: update
+  path: spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.containers.(name==knative-openshift).env.(name==KOURIER_MANIFEST_PATH)
+  value:
+    name: KOURIER_MANIFEST_PATH
+    value: "/tmp/kourier/kourier.yaml"
+- command: update
+  path: spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.containers[0].volumeMounts[+]
+  value:
+    name: "kourier-manifest"
+    mountPath: "/tmp/kourier"
+- command: update
+  path: spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.volumes[+]
+  value:
+    name: "kourier-manifest"
+    configMap:
+      name: "kourier-cm"
+      items:
+        - key: "kourier.yaml"
+          path: "kourier.yaml"
+EOF
+
 }
 
 function install_catalogsource(){
 
-  # stick commit otherwise we need to update patch file very often.
-  local SERVERLESS_COMMIT=24090bfbf30b3a0b1749c0fdc9dcbea2a18ed5fc
-
   # And checkout the setup script based on that commit.
   local SERVERLESS_DIR=$(mktemp -d)
   local CURRENT_DIR=$(pwd)
+  git clone --depth 1 https://github.com/openshift-knative/serverless-operator.git ${SERVERLESS_DIR}
   pushd ${SERVERLESS_DIR}
 
-  git init
-  git remote add origin https://github.com/openshift-knative/serverless-operator.git
-  git fetch --depth 1 origin $SERVERLESS_COMMIT
-  git checkout FETCH_HEAD
-
-  CSV_TARGET="olm-catalog/serverless-operator/manifests/serverless-operator.clusterserviceversion.yaml"
-  update_csv $CURRENT_DIR
+  update_csv $CURRENT_DIR || return $?
 
   source ./test/lib.bash
-  create_namespaces || exit $?
-  ensure_catalogsource_installed || exit $?
+  create_namespaces
+  # Make OPENSHIFT_CI empty to use nightly build images.
+  OPENSHIFT_CI="" ensure_catalogsource_installed || return $?
   popd
 }
 
 function install_knative(){
   header "Installing Knative"
-  install_catalogsource
-  create_configmaps
-  deploy_serverless_operator "$CURRENT_CSV"
+  install_catalogsource || return $?
+  create_configmaps || return $?
+  deploy_serverless_operator "$CURRENT_CSV" || return $?
 
   # Wait for the CRD to appear
   timeout 900 '[[ $(oc get crd | grep -c knativeservings) -eq 0 ]]' || return 1
 
   # Install Knative Serving with initial values in test/config/config-observability.yaml.
-  cat <<-EOF | oc apply -f -
+  cat <<-EOF | oc apply -f - || return $?
 apiVersion: operator.knative.dev/v1alpha1
 kind: KnativeServing
 metadata:
@@ -180,15 +229,15 @@ EOF
 
 function create_configmaps(){
   # Create configmap to use the latest manifest.
-  oc create configmap ko-data-serving -n $OPERATORS_NAMESPACE --from-file="openshift/release/knative-serving-ci.yaml"
+  oc create configmap ko-data-serving -n $OPERATORS_NAMESPACE --from-file="openshift/release/knative-serving-ci.yaml" || return $?
 
   # Create eventing manifest. We don't want to do this, but upstream designed that knative-eventing dir is mandatory
   # when KO_DATA_PATH was overwritten.
-  oc create configmap ko-data-eventing -n $OPERATORS_NAMESPACE --from-file="openshift/release/knative-eventing-ci.yaml"
+  oc create configmap ko-data-eventing -n $OPERATORS_NAMESPACE --from-file="openshift/release/knative-eventing-ci.yaml" || return $?
 
   # Create configmap to use the latest kourier.
-  sed -i -e 's/kourier-control.knative-serving/kourier-control.knative-serving-ingress/g' third_party/kourier-latest/kourier.yaml
-  oc create configmap kourier-cm -n $OPERATORS_NAMESPACE --from-file="third_party/kourier-latest/kourier.yaml"
+  sed -i -e 's/kourier-control.knative-serving/kourier-control.knative-serving-ingress/g' third_party/kourier-latest/kourier.yaml || return $?
+  oc create configmap kourier-cm -n $OPERATORS_NAMESPACE --from-file="third_party/kourier-latest/kourier.yaml" || return $?
 }
 
 function prepare_knative_serving_tests_nightly {
