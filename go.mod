@@ -37,7 +37,7 @@ require (
 	knative.dev/caching v0.0.0-20201104174804-1a305923cfbe
 	knative.dev/hack v0.0.0-20201103151104-3d5abc3a0075
 	knative.dev/networking v0.0.0-20201103163404-b9f80f4537af
-	knative.dev/pkg v0.0.0-20201103163404-5514ab0c1fdf
+	knative.dev/pkg v0.0.0-20201215150143-89a9cc3e03a5
 )
 
 replace (
