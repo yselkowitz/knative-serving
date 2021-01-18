@@ -206,6 +206,8 @@ metadata:
   namespace: ${SERVING_NAMESPACE}
 spec:
   config:
+    deployment:
+      progressDeadline: "120s"
     observability:
       logging.request-log-template: '{"httpRequest": {"requestMethod": "{{.Request.Method}}",
         "requestUrl": "{{js .Request.RequestURI}}", "requestSize": "{{.Request.ContentLength}}",
@@ -242,6 +244,9 @@ function create_configmaps(){
 
 function prepare_knative_serving_tests_nightly {
   echo ">> Creating test resources for OpenShift (test/config/)"
+
+  # workaround until https://github.com/knative/operator/issues/431 was fixed.
+  rm -f test/config/config-deployment.yaml
 
   oc apply -f test/config
 
@@ -287,6 +292,8 @@ function run_e2e_tests(){
     -run "^(${test_name})$" \
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
+    --enable-alpha \
+    --enable-beta \
     --resolvabledomain "$(ingress_class)" || failed=$?
 
     return $failed
@@ -304,6 +311,8 @@ function run_e2e_tests(){
     ./test/e2e ./test/conformance/api/... ./test/conformance/runtime/... \
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
+    --enable-alpha \
+    --enable-beta \
     --resolvabledomain "$(ingress_class)" || failed=1
 
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"tag-header-based-routing": "enabled"}}}}' || fail_test
