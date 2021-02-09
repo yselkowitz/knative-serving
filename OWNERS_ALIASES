@@ -8,6 +8,7 @@ aliases:
   - markusthoemmes
   - evanchooly
   - arilivigni
+  - skonto
   serving-reviewers:
   - alanfx
   - mgencur
@@ -17,6 +18,7 @@ aliases:
   - markusthoemmes
   - evanchooly
   - arilivigni
+  - skonto
 
   serving-api-approvers:
   - alanfx
@@ -27,6 +29,7 @@ aliases:
   - markusthoemmes
   - evanchooly
   - arilivigni
+  - skonto
   serving-api-reviewers:
   - alanfx
   - mgencur
@@ -36,6 +39,7 @@ aliases:
   - markusthoemmes
   - evanchooly
   - arilivigni
+  - skonto
 
   autoscaling-approvers:
   - alanfx
@@ -46,6 +50,7 @@ aliases:
   - markusthoemmes
   - evanchooly
   - arilivigni
+  - skonto
   autoscaling-reviewers:
   - alanfx
   - mgencur
@@ -55,6 +60,7 @@ aliases:
   - markusthoemmes
   - evanchooly
   - arilivigni
+  - skonto
 
   monitoring-approvers:
   - alanfx
@@ -65,6 +71,7 @@ aliases:
   - markusthoemmes
   - evanchooly
   - arilivigni
+  - skonto
   monitoring-reviewers:
   - alanfx
   - mgencur
@@ -74,6 +81,7 @@ aliases:
   - markusthoemmes
   - evanchooly
   - arilivigni
+  - skonto
 
   productivity-approvers:
   - alanfx
@@ -84,6 +92,7 @@ aliases:
   - markusthoemmes
   - evanchooly
   - arilivigni
+  - skonto
   productivity-reviewers:
   - alanfx
   - mgencur
@@ -93,6 +102,7 @@ aliases:
   - markusthoemmes
   - evanchooly
   - arilivigni
+  - skonto
 
   networking-approvers:
   - alanfx
@@ -103,6 +113,7 @@ aliases:
   - markusthoemmes
   - evanchooly
   - arilivigni
+  - skonto
   networking-reviewers:
   - alanfx
   - mgencur
@@ -112,6 +123,7 @@ aliases:
   - markusthoemmes
   - evanchooly
   - arilivigni
+  - skonto
 
   build-approvers:
   - alanfx
@@ -122,6 +134,7 @@ aliases:
   - markusthoemmes
   - evanchooly
   - arilivigni
+  - skonto
   build-reviewers:
   - alanfx
   - mgencur
@@ -131,4 +144,5 @@ aliases:
   - markusthoemmes
   - evanchooly
   - arilivigni
+  - skonto
 
