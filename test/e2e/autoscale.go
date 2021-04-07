@@ -297,20 +297,11 @@ func numberOfReadyPods(ctx *TestContext) (float64, *appsv1.Deployment, error) {
 		return 0, nil, fmt.Errorf("failed to get deployment %s: %w", n, err)
 	}
 
-	var minAvailable, updated bool
-	for _, cond := range deploy.Status.Conditions {
-		switch cond.Type {
-		case appsv1.DeploymentAvailable:
-			minAvailable = cond.Status == corev1.ConditionTrue
-		case appsv1.DeploymentProgressing:
-			updated = cond.Reason == "ReplicaSetUpdated"
-		}
-	}
-
-	if minAvailable && updated {
+	if isInRollout(deploy) {
 		// Ref: #11092
 		// The deployment was updated and the update is being rolled out so we defensively
 		// pick the desired replicas to assert the autoscaling decisions.
+		// TODO: Drop this once we solved the underscale issue.
 		ctx.t.Logf("Deployment is being rolled, picking spec.replicas=%d", *deploy.Spec.Replicas)
 		return float64(*deploy.Spec.Replicas), deploy, nil
 	}
@@ -323,6 +314,7 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
+	originalMaxPods := maxPods
 	for {
 		select {
 		case <-ticker.C:
@@ -332,6 +324,14 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 			if err != nil {
 				return err
 			}
+
+			if isInRollout(d) {
+				// Ref: #11092
+				// Allow for a higher scale if the deployment is being rolled as that
+				// might be skewing metrics in the autoscaler.
+				maxPods = math.Ceil(originalMaxPods * 1.2)
+			}
+
 			mes := fmt.Sprintf("revision %q #replicas: %v, want at least: %v\ndeployment state: %s",
 				ctx.resources.Revision.Name, got, minPods, spew.Sdump(d))
 			ctx.logf(mes)
@@ -357,6 +357,14 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 			if err != nil {
 				return fmt.Errorf("failed to fetch number of ready pods: %w", err)
 			}
+
+			if isInRollout(d) {
+				// Ref: #11092
+				// Allow for a higher scale if the deployment is being rolled as that
+				// might be skewing metrics in the autoscaler.
+				maxPods = math.Ceil(originalMaxPods * 1.2)
+			}
+
 			mes := fmt.Sprintf("got %v replicas, expected between [%v, %v] replicas for revision %s\ndeployment state: %s",
 				got, targetPods-1, maxPods, ctx.resources.Revision.Name, spew.Sdump(d))
 			ctx.logf(mes)
@@ -409,4 +417,26 @@ func AutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, done <-
 	})
 
 	return grp.Wait
+}
+
+// isInRollout is a loose copy of the kubectl function handling rollouts.
+// See: https://github.com/kubernetes/kubectl/blob/0149779a03735a5d483115ca4220a7b6c861430c/pkg/polymorphichelpers/rollout_status.go#L75-L91
+func isInRollout(deploy *appsv1.Deployment) bool {
+	if deploy.Generation > deploy.Status.ObservedGeneration {
+		// Waiting for update to be observed.
+		return true
+	}
+	if deploy.Spec.Replicas != nil && deploy.Status.UpdatedReplicas < *deploy.Spec.Replicas {
+		// Not enough replicas updated yet.
+		return true
+	}
+	if deploy.Status.Replicas > deploy.Status.UpdatedReplicas {
+		// Old replicas are being terminated.
+		return true
+	}
+	if deploy.Status.AvailableReplicas < deploy.Status.UpdatedReplicas {
+		// Not enough available yet.
+		return true
+	}
+	return false
 }
