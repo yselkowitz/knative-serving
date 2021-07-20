@@ -252,18 +252,19 @@ function create_configmaps(){
   # when KO_DATA_PATH was overwritten.
   oc create configmap ko-data-eventing -n $OPERATORS_NAMESPACE --from-file="openshift/release/knative-eventing-ci.yaml" || return $?
 
+  # TODO: Remove this sed line when serverless-operator starts using operator 0.24. KOURIER_GATEWAY_NAMESPACE should be set by operator.
+  sed -i -e 's/value: \"kourier-system\"/value: \"knative-serving-ingress\"/g' third_party/kourier-latest/kourier.yaml || return $?
+
   # Create configmap to use the latest kourier.
-  sed -i -e 's/kourier-control.knative-serving/kourier-control.knative-serving-ingress/g' third_party/kourier-latest/kourier.yaml || return $?
+  sed -i -e 's/net-kourier-controller.knative-serving/net-kourier-controller.knative-serving-ingress/g' third_party/kourier-latest/kourier.yaml || return $?
   oc create configmap kourier-cm -n $OPERATORS_NAMESPACE --from-file="third_party/kourier-latest/kourier.yaml" || return $?
 }
 
 function prepare_knative_serving_tests_nightly {
   echo ">> Creating test resources for OpenShift (test/config/)"
 
-  run_ytt \
-    -f "test/config/ytt/lib" \
-    -f "test/config/ytt/values.yaml" \
-    -f test/config/ytt/core/resources.yaml | kubectl apply -f -
+  kubectl apply -f test/config/cluster-resources.yaml
+  kubectl apply -f test/config/test-resources.yaml
 
   oc adm policy add-scc-to-user privileged -z default -n serving-tests
   oc adm policy add-scc-to-user privileged -z default -n serving-tests-alt
