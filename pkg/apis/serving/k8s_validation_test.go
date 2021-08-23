@@ -26,7 +26,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/config"
@@ -93,6 +92,13 @@ func withPodSpecSecurityContextEnabled() configOption {
 func withContainerSpecAddCapabilitiesEnabled() configOption {
 	return func(cfg *config.Config) *config.Config {
 		cfg.Features.ContainerSpecAddCapabilities = config.Enabled
+		return cfg
+	}
+}
+
+func withPodSpecVolumesEmptyDirEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecVolumesEmptyDir = config.Enabled
 		return cfg
 	}
 }
@@ -837,7 +843,7 @@ func TestContainerValidation(t *testing.T) {
 		name    string
 		c       corev1.Container
 		want    *apis.FieldError
-		volumes sets.String
+		volumes map[string]corev1.Volume
 		cfgOpts []configOption
 	}{{
 		name: "empty container",
@@ -1073,7 +1079,18 @@ func TestContainerValidation(t *testing.T) {
 				ReadOnly:  true,
 			}},
 		},
-		volumes: sets.NewString("the-name"),
+		volumes: map[string]corev1.Volume{
+			"the-name": {
+				Name: "the-name",
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "test-cm",
+						},
+					},
+				},
+			},
+		},
 	}, {
 		name: "has known volumeMounts, but at reserved path",
 		c: corev1.Container{
@@ -1084,7 +1101,18 @@ func TestContainerValidation(t *testing.T) {
 				ReadOnly:  true,
 			}},
 		},
-		volumes: sets.NewString("the-name"),
+		volumes: map[string]corev1.Volume{
+			"the-name": {
+				Name: "the-name",
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "test-cm",
+						},
+					},
+				},
+			},
+		},
 		want: (&apis.FieldError{
 			Message: `mountPath "/var/log" is a reserved path`,
 			Paths:   []string{"mountPath"},
@@ -1099,8 +1127,38 @@ func TestContainerValidation(t *testing.T) {
 				ReadOnly:  true,
 			}},
 		},
-		volumes: sets.NewString("the-name"),
-		want:    apis.ErrInvalidValue("not/absolute", "volumeMounts[0].mountPath"),
+		volumes: map[string]corev1.Volume{
+			"the-name": {
+				Name: "the-name",
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "test-cm",
+						},
+					},
+				},
+			},
+		},
+		want: apis.ErrInvalidValue("not/absolute", "volumeMounts[0].mountPath"),
+	}, {
+		name: "Empty dir has rw access",
+		c: corev1.Container{
+			Image: "foo",
+			VolumeMounts: []corev1.VolumeMount{{
+				MountPath: "/mount/path",
+				Name:      "the-name",
+			}},
+		},
+		volumes: map[string]corev1.Volume{
+			"the-name": {
+				Name: "the-name",
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{
+						Medium: "Memory",
+					},
+				},
+			},
+		},
 	}, {
 		name: "has lifecycle",
 		c: corev1.Container{
@@ -1122,7 +1180,18 @@ func TestContainerValidation(t *testing.T) {
 				ReadOnly:  true,
 			}},
 		},
-		volumes: sets.NewString("the-name"),
+		volumes: map[string]corev1.Volume{
+			"the-name": {
+				Name: "the-name",
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "test-cm",
+						},
+					},
+				},
+			},
+		},
 	}, {
 		name: "valid with probes (no port)",
 		c: corev1.Container{
@@ -1512,9 +1581,10 @@ func TestContainerValidation(t *testing.T) {
 
 func TestVolumeValidation(t *testing.T) {
 	tests := []struct {
-		name string
-		v    corev1.Volume
-		want *apis.FieldError
+		name    string
+		v       corev1.Volume
+		want    *apis.FieldError
+		cfgOpts []configOption
 	}{{
 		name: "just name",
 		v: corev1.Volume{
@@ -1546,11 +1616,26 @@ func TestVolumeValidation(t *testing.T) {
 		v: corev1.Volume{
 			Name: "foo",
 			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
+				EmptyDir: &corev1.EmptyDirVolumeSource{
+					Medium:    "Memory",
+					SizeLimit: resource.NewQuantity(400, "G"),
+				},
 			},
 		},
-		want: apis.ErrMissingOneOf("secret", "configMap", "projected").Also(
-			apis.ErrDisallowedFields("emptyDir")),
+		cfgOpts: []configOption{withPodSpecVolumesEmptyDirEnabled()},
+	}, {
+		name: "invalid emptyDir volume",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{
+					Medium:    "Memory",
+					SizeLimit: resource.NewQuantity(-1, "G"),
+				},
+			},
+		},
+		want:    apis.ErrInvalidValue(-1, "emptyDir.sizeLimit"),
+		cfgOpts: []configOption{withPodSpecVolumesEmptyDirEnabled()},
 	}, {
 		name: "no volume source",
 		v: corev1.Volume{
@@ -1767,7 +1852,15 @@ func TestVolumeValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := validateVolume(test.v)
+			ctx := context.Background()
+			if test.cfgOpts != nil {
+				cfg := config.FromContextOrDefaults(ctx)
+				for _, opt := range test.cfgOpts {
+					cfg = opt(cfg)
+				}
+				ctx = config.ToContext(ctx, cfg)
+			}
+			got := validateVolume(ctx, test.v)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("validateVolume (-want, +got): \n%s", diff)
 			}
