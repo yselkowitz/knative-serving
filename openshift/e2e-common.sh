@@ -305,6 +305,7 @@ function run_e2e_tests(){
 
   # Give the controller time to sync with the rest of the system components.
   sleep 30
+  subdomain=$(oc get ingresses.config.openshift.io cluster  -o jsonpath="{.spec.domain}"
 
   if [ -n "$test_name" ]; then
     go_test_e2e -tags=e2e -timeout=15m -parallel=1 \
@@ -314,6 +315,7 @@ function run_e2e_tests(){
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --enable-alpha \
     --enable-beta \
+    --customdomain=$subdomain \
     --resolvabledomain || failed=$?
 
     return $failed
@@ -333,6 +335,7 @@ function run_e2e_tests(){
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --enable-alpha \
     --enable-beta \
+    --customdomain=$subdomain \
     --resolvabledomain || failed=1
 
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"tag-header-based-routing": "enabled"}}}}' || fail_test
@@ -398,6 +401,7 @@ function run_e2e_tests(){
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --enable-alpha \
     --enable-beta \
+    --customdomain=$subdomain \
     --resolvabledomain || failed=3
 
   return $failed
