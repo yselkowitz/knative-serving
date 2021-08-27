@@ -305,7 +305,7 @@ function run_e2e_tests(){
 
   # Give the controller time to sync with the rest of the system components.
   sleep 30
-  subdomain=$(oc get ingresses.config.openshift.io cluster  -o jsonpath="{.spec.domain}"
+  subdomain=$(oc get ingresses.config.openshift.io cluster  -o jsonpath="{.spec.domain}")
 
   if [ -n "$test_name" ]; then
     go_test_e2e -tags=e2e -timeout=15m -parallel=1 \
