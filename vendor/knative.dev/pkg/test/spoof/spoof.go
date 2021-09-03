@@ -27,6 +27,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -156,7 +157,7 @@ func (sc *SpoofingClient) Do(req *http.Request, errorRetryCheckers ...ErrorRetry
 // If no retry checkers are specified `DefaultErrorRetryChecker` will be used.
 func (sc *SpoofingClient) Poll(req *http.Request, inState ResponseChecker, errorRetryCheckers ...ErrorRetryChecker) (*Response, error) {
 	if len(errorRetryCheckers) == 0 {
-		errorRetryCheckers = []ErrorRetryChecker{DefaultErrorRetryChecker}
+		errorRetryCheckers = []ErrorRetryChecker{DefaultErrorRetryChecker, isUnknownAuthority}
 	}
 
 	var resp *Response
@@ -222,6 +223,15 @@ func DefaultErrorRetryChecker(err error) (bool, error) {
 	// Retry on connection/network errors.
 	if errors.Is(err, io.EOF) {
 		return true, fmt.Errorf("retrying for: %w", err)
+	}
+	return false, err
+}
+
+// isUnknownAuthority checks if the error contains "certificate signed by unknown authority".
+// This error happens when OpenShift Route starts/changes to use passthrough mode. It takes a little bit time to be synced.
+func isUnknownAuthority(err error) (bool, error) {
+	if err != nil && strings.Contains(err.Error(), "certificate signed by unknown authority") {
+		return true, fmt.Errorf("retrying for certificate signed by unknown authority: %w", err)
 	}
 	return false, err
 }

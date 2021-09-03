@@ -1,0 +1,37 @@
+diff --git a/vendor/knative.dev/pkg/test/spoof/spoof.go b/vendor/knative.dev/pkg/test/spoof/spoof.go
+index 48ffcffa8..9e76a93a2 100644
+--- a/vendor/knative.dev/pkg/test/spoof/spoof.go
++++ b/vendor/knative.dev/pkg/test/spoof/spoof.go
+@@ -27,6 +27,7 @@ import (
+ 	"net"
+ 	"net/http"
+ 	"net/url"
++	"strings"
+ 	"time"
+ 
+ 	"k8s.io/apimachinery/pkg/util/wait"
+@@ -156,7 +157,7 @@ func (sc *SpoofingClient) Do(req *http.Request, errorRetryCheckers ...ErrorRetry
+ // If no retry checkers are specified `DefaultErrorRetryChecker` will be used.
+ func (sc *SpoofingClient) Poll(req *http.Request, inState ResponseChecker, errorRetryCheckers ...ErrorRetryChecker) (*Response, error) {
+ 	if len(errorRetryCheckers) == 0 {
+-		errorRetryCheckers = []ErrorRetryChecker{DefaultErrorRetryChecker}
++		errorRetryCheckers = []ErrorRetryChecker{DefaultErrorRetryChecker, isUnknownAuthority}
+ 	}
+ 
+ 	var resp *Response
+@@ -226,6 +227,15 @@ func DefaultErrorRetryChecker(err error) (bool, error) {
+ 	return false, err
+ }
+ 
++// isUnknownAuthority checks if the error contains "certificate signed by unknown authority".
++// This error happens when OpenShift Route starts/changes to use passthrough mode. It takes a little bit time to be synced.
++func isUnknownAuthority(err error) (bool, error) {
++	if err != nil && strings.Contains(err.Error(), "certificate signed by unknown authority") {
++		return true, fmt.Errorf("retrying for certificate signed by unknown authority: %w", err)
++	}
++	return false, err
++}
++
+ // logZipkinTrace provides support to log Zipkin Trace for param: spoofResponse
+ // We only log Zipkin trace for HTTP server errors i.e for HTTP status codes between 500 to 600
+ func (sc *SpoofingClient) logZipkinTrace(spoofResp *Response) {
