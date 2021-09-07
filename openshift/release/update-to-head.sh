@@ -20,6 +20,7 @@ git commit -m ":open_file_folder: Update openshift specific files."
 
 # Apply patches .
 git apply openshift/patches/*
+git add .
 git commit -am ":fire: Apply carried patches."
 
 git push -f openshift release-next
