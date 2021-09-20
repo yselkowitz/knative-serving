@@ -182,6 +182,7 @@ function update_csv(){
         - key: "kourier.yaml"
           path: "kourier.yaml"
 EOF
+  oc create configmap kourier-cm -n $OPERATORS_NAMESPACE --from-file="./openshift-knative-operator/cmd/operator/kodata/ingress/${KOURIER_MINOR_VERSION}/kourier.yaml" || return $?
 }
 
 function install_catalogsource(){
@@ -192,10 +193,9 @@ function install_catalogsource(){
   git clone --depth 1 https://github.com/openshift-knative/serverless-operator.git ${SERVERLESS_DIR}
   pushd ${SERVERLESS_DIR}
 
-  update_csv $CURRENT_DIR || return $?
-
   source ./test/lib.bash
   create_namespaces
+  update_csv $CURRENT_DIR || return $?
   # Make OPENSHIFT_CI empty to use nightly build images.
   OPENSHIFT_CI="" ensure_catalogsource_installed || return $?
   popd
@@ -255,13 +255,6 @@ function create_configmaps(){
   # Create eventing manifest. We don't want to do this, but upstream designed that knative-eventing dir is mandatory
   # when KO_DATA_PATH was overwritten.
   oc create configmap ko-data-eventing -n $OPERATORS_NAMESPACE --from-file="openshift/release/knative-eventing-ci.yaml" || return $?
-
-  # TODO: Remove this sed line when serverless-operator starts using operator 0.24. KOURIER_GATEWAY_NAMESPACE should be set by operator.
-  sed -i -e 's/value: \"kourier-system\"/value: \"knative-serving-ingress\"/g' third_party/kourier-latest/kourier.yaml || return $?
-
-  # Create configmap to use the latest kourier.
-  sed -i -e 's/net-kourier-controller.knative-serving/net-kourier-controller.knative-serving-ingress/g' third_party/kourier-latest/kourier.yaml || return $?
-  oc create configmap kourier-cm -n $OPERATORS_NAMESPACE --from-file="third_party/kourier-latest/kourier.yaml" || return $?
 }
 
 function prepare_knative_serving_tests_nightly {
