@@ -198,6 +198,8 @@ function install_catalogsource(){
   update_csv $CURRENT_DIR || return $?
   # Make OPENSHIFT_CI empty to use nightly build images.
   OPENSHIFT_CI="" ensure_catalogsource_installed || return $?
+  # Create a secret for https test.
+  trust_router_ca || return $?
   popd
 }
 
@@ -309,6 +311,7 @@ function run_e2e_tests(){
     --enable-alpha \
     --enable-beta \
     --customdomain=$subdomain \
+    --https \
     --resolvabledomain || failed=$?
 
     return $failed
@@ -329,12 +332,14 @@ function run_e2e_tests(){
     --enable-alpha \
     --enable-beta \
     --customdomain=$subdomain \
+    --https \
     --resolvabledomain || failed=1
 
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"tag-header-based-routing": "enabled"}}}}' || fail_test
   go_test_e2e -timeout=2m ./test/e2e/tagheader \
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
+    --https \
     --resolvabledomain || failed=1
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"tag-header-based-routing": "disabled"}}}}' || fail_test
 
@@ -344,6 +349,7 @@ function run_e2e_tests(){
   go_test_e2e -timeout=2m ./test/e2e/initscale \
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
+    --https \
     --resolvabledomain || failed=1
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "autoscaler": {"allow-zero-initial-scale": "false"}}}}' || fail_test
 
@@ -353,6 +359,7 @@ function run_e2e_tests(){
   go_test_e2e -timeout=2m ./test/e2e/gc \
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
+    --https \
     --resolvabledomain || failed=1
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"responsive-revision-gc": "disabled"}}}}' || fail_test
 
@@ -360,6 +367,7 @@ function run_e2e_tests(){
   go_test_e2e -timeout=30m -tags=hpa ./test/e2e \
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
+    --https \
     --resolvabledomain || failed=1
 
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"kubernetes.podspec-volumes-emptydir": "enabled"}}}}' || fail_test
@@ -367,6 +375,7 @@ function run_e2e_tests(){
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --enable-alpha \
+    --https \
     --resolvabledomain || failed=1
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"kubernetes.podspec-volumes-emptydir": "disabled"}}}}' || fail_test
 
@@ -374,6 +383,7 @@ function run_e2e_tests(){
   local image_to_tag=$KNATIVE_SERVING_TEST_HELLOWORLD
   oc tag -n serving-tests "$image_to_tag" "helloworld:latest" --reference-policy=local
   go_test_e2e -tags=e2e -timeout=30m ./test/e2e -run "^(TestHelloWorld)$" \
+    --https \
     --resolvabledomain --kubeconfig "$KUBECONFIG" \
     --imagetemplate "image-registry.openshift-image-registry.svc:5000/serving-tests/{{.Name}}" || failed=2
 
@@ -395,6 +405,7 @@ function run_e2e_tests(){
     --enable-alpha \
     --enable-beta \
     --customdomain=$subdomain \
+    --https \
     --resolvabledomain || failed=3
 
   return $failed
