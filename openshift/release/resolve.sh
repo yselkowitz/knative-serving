@@ -17,11 +17,6 @@ function resolve_file() {
   local file=$1
   local to=$2
 
-  # Skip nscert, it's not part of upstream's release YAML either.
-  if grep -q 'networking.knative.dev/wildcard-certificate-provider: nscert' "$1"; then
-    return
-  fi
-
   echo "---" >> "$to"
   # 1. Rewrite image references
   # 2. Update config map entry
