@@ -303,6 +303,7 @@ function run_e2e_tests(){
   subdomain=$(oc get ingresses.config.openshift.io cluster  -o jsonpath="{.spec.domain}")
 
   if [ -n "$test_name" ]; then
+    oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"kubernetes.podspec-volumes-emptydir": "enabled"}}}}' || fail_test
     go_test_e2e -tags=e2e -timeout=15m -parallel=1 \
     ./test/e2e ./test/conformance/api/... ./test/conformance/runtime/... \
     -run "^(${test_name})$" \
@@ -313,6 +314,7 @@ function run_e2e_tests(){
     --customdomain=$subdomain \
     --https \
     --resolvabledomain || failed=$?
+    oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"kubernetes.podspec-volumes-emptydir": "disabled"}}}}' || fail_test
 
     return $failed
   fi
@@ -325,6 +327,7 @@ function run_e2e_tests(){
     parallel=2
   fi
 
+  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"kubernetes.podspec-volumes-emptydir": "enabled"}}}}' || fail_test
   go_test_e2e -tags=e2e -timeout=30m -parallel=$parallel \
     ./test/e2e ./test/conformance/api/... ./test/conformance/runtime/... \
     --kubeconfig "$KUBECONFIG" \
@@ -334,6 +337,7 @@ function run_e2e_tests(){
     --customdomain=$subdomain \
     --https \
     --resolvabledomain || failed=1
+  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"kubernetes.podspec-volumes-emptydir": "disabled"}}}}' || fail_test
 
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"tag-header-based-routing": "enabled"}}}}' || fail_test
   go_test_e2e -timeout=2m ./test/e2e/tagheader \
@@ -369,15 +373,6 @@ function run_e2e_tests(){
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --https \
     --resolvabledomain || failed=1
-
-  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"kubernetes.podspec-volumes-emptydir": "enabled"}}}}' || fail_test
-  go_test_e2e -tags=emptydir -timeout=2m ./test/e2e \
-    --kubeconfig "$KUBECONFIG" \
-    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
-    --enable-alpha \
-    --https \
-    --resolvabledomain || failed=1
-  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"kubernetes.podspec-volumes-emptydir": "disabled"}}}}' || fail_test
 
   # Run the helloworld test with an image pulled into the internal registry.
   local image_to_tag=$KNATIVE_SERVING_TEST_HELLOWORLD
