@@ -248,10 +248,6 @@ EOF
 }
 
 function create_configmaps(){
-  # Keep this until OCP 4.12.
-  # Check https://github.com/openshift/knative-serving/pull/1037#issuecomment-1021827931 for more.
-  sed -i -e "s|policy/v1|policy/v1beta1|g" openshift/release/knative-serving-ci.yaml
-
   # Create configmap to use the latest manifest.
   oc create configmap ko-data-serving -n $OPERATORS_NAMESPACE --from-file="openshift/release/knative-serving-ci.yaml" || return $?
 

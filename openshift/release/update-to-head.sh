@@ -13,15 +13,15 @@ git checkout upstream/main -B release-next
 # Update openshift's main and take all needed files from there.
 git fetch openshift main
 git checkout openshift/main openshift OWNERS_ALIASES OWNERS Makefile
-make generate-dockerfiles
-make RELEASE=ci generate-release
-git add openshift OWNERS_ALIASES OWNERS Makefile
-git commit -m ":open_file_folder: Update openshift specific files."
-
 # Apply patches .
 git apply openshift/patches/*
 git add .
 git commit -am ":fire: Apply carried patches."
+
+make generate-dockerfiles
+make RELEASE=ci generate-release
+git add openshift OWNERS_ALIASES OWNERS Makefile
+git commit -m ":open_file_folder: Update openshift specific files."
 
 git push -f openshift release-next
 
