@@ -310,6 +310,7 @@ function run_e2e_tests(){
     --enable-beta \
     --customdomain=$subdomain \
     --https \
+    --skip-cleanup-on-fail \
     --resolvabledomain || failed=$?
     oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"kubernetes.podspec-volumes-emptydir": "disabled"}}}}' || fail_test
 
@@ -333,6 +334,7 @@ function run_e2e_tests(){
     --enable-beta \
     --customdomain=$subdomain \
     --https \
+    --skip-cleanup-on-fail \
     --resolvabledomain || failed=1
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"kubernetes.podspec-volumes-emptydir": "disabled"}}}}' || fail_test
 
@@ -341,6 +343,7 @@ function run_e2e_tests(){
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --https \
+    --skip-cleanup-on-fail \
     --resolvabledomain || failed=1
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"tag-header-based-routing": "disabled"}}}}' || fail_test
 
@@ -351,6 +354,7 @@ function run_e2e_tests(){
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --https \
+    --skip-cleanup-on-fail \
     --resolvabledomain || failed=1
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "autoscaler": {"allow-zero-initial-scale": "false"}}}}' || fail_test
 
@@ -361,6 +365,7 @@ function run_e2e_tests(){
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --https \
+    --skip-cleanup-on-fail \
     --resolvabledomain || failed=1
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"responsive-revision-gc": "disabled"}}}}' || fail_test
 
@@ -369,6 +374,7 @@ function run_e2e_tests(){
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --https \
+    --skip-cleanup-on-fail \
     --resolvabledomain || failed=1
 
   # Run the helloworld test with an image pulled into the internal registry.
@@ -376,6 +382,7 @@ function run_e2e_tests(){
   oc tag -n serving-tests "$image_to_tag" "helloworld:latest" --reference-policy=local
   go_test_e2e -tags=e2e -timeout=30m ./test/e2e -run "^(TestHelloWorld)$" \
     --https \
+    --skip-cleanup-on-fail \
     --resolvabledomain --kubeconfig "$KUBECONFIG" \
     --imagetemplate "image-registry.openshift-image-registry.svc:5000/serving-tests/{{.Name}}" || failed=2
 
@@ -398,6 +405,7 @@ function run_e2e_tests(){
     --enable-beta \
     --customdomain=$subdomain \
     --https \
+    --skip-cleanup-on-fail \
     --resolvabledomain || failed=3
 
   return $failed
