@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
-
 	"knative.dev/serving/pkg/apis/config"
 )
 
