@@ -113,6 +113,20 @@ func withPodSpecVolumesEmptyDirEnabled() configOption {
 	}
 }
 
+func withPodSpecPersistentVolumeClaimEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecPersistentVolumeClaim = config.Enabled
+		return cfg
+	}
+}
+
+func withPodSpecPersistentVolumeWriteEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecPersistentVolumeWrite = config.Enabled
+		return cfg
+	}
+}
+
 func withPodSpecPriorityClassNameEnabled() configOption {
 	return func(cfg *config.Config) *config.Config {
 		cfg.Features.PodSpecPriorityClassName = config.Enabled
@@ -417,6 +431,142 @@ func TestPodSpecValidation(t *testing.T) {
 			Message: `volume with name "debugging-support-files" not mounted`,
 			Paths:   []string{"volumes[0].name"},
 		},
+	}, {
+		name: "PVC not read-only, mount read-only, write disabled by default",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:      "foo",
+					MountPath: "/data",
+					ReadOnly:  true,
+				}},
+			}},
+			Volumes: []corev1.Volume{{
+				Name: "foo",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "myclaim",
+						ReadOnly:  false,
+					},
+				}},
+			}},
+		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled()},
+		want: &apis.FieldError{
+			Message: `Persistent volume write support is disabled, but found persistent volume claim myclaim that is not read-only`,
+		},
+	}, {
+		name: "PVC not read-only, mount not read-only, write disabled by default",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:      "foo",
+					MountPath: "/data",
+					ReadOnly:  false,
+				}},
+			}},
+			Volumes: []corev1.Volume{{
+				Name: "foo",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "myclaim",
+						ReadOnly:  false,
+					},
+				}},
+			}},
+		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled()},
+		want: &apis.FieldError{
+			Message: `Persistent volume write support is disabled, but found persistent volume claim myclaim that is not read-only`,
+		},
+	}, {
+		name: "PVC read-only, mount not read-only, write disabled by default",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:      "foo",
+					MountPath: "/data",
+					ReadOnly:  false,
+				}},
+			}},
+			Volumes: []corev1.Volume{{
+				Name: "foo",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "myclaim",
+						ReadOnly:  true,
+					},
+				}},
+			}},
+		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled()},
+		want: &apis.FieldError{
+			Message: "volume is readOnly but volume mount is not",
+			Paths:   []string{"containers[0].volumeMounts[0].readOnly"},
+		},
+	}, {
+		name: "PVC read-only, write disabled by default",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:      "foo",
+					MountPath: "/data",
+					ReadOnly:  true,
+				}},
+			}},
+			Volumes: []corev1.Volume{{
+				Name: "foo",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "myclaim",
+						ReadOnly:  true,
+					},
+				}},
+			}},
+		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled()},
+	}, {
+		name: "PVC not read-only, write enabled",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:      "foo",
+					MountPath: "/data",
+					ReadOnly:  true,
+				}},
+			}},
+			Volumes: []corev1.Volume{{
+				Name: "foo",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "myclaim",
+						ReadOnly:  false,
+					},
+				}},
+			}},
+		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled(), withPodSpecPersistentVolumeWriteEnabled()},
+	}, {
+		name: "PVC read-only, write enabled",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:      "foo",
+					MountPath: "/data",
+					ReadOnly:  false,
+				}},
+			}},
+			Volumes: []corev1.Volume{{
+				Name: "foo",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "myclaim",
+						ReadOnly:  false,
+					},
+				}},
+			}},
+		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled(), withPodSpecPersistentVolumeWriteEnabled()},
 	}}
 
 	for _, test := range tests {
@@ -1700,7 +1850,10 @@ func getCommonContainerValidationTestCases() []containerValidationTestCase {
 				Message: "volumeMount has no matching volume",
 				Paths:   []string{"name"},
 			}).ViaFieldIndex("volumeMounts", 0).Also(
-				apis.ErrMissingField("readOnly").ViaFieldIndex("volumeMounts", 0)).Also(
+				(&apis.FieldError{
+					Message: "volume mount should be readOnly for this type of volume",
+					Paths:   []string{"readOnly"},
+				}).ViaFieldIndex("volumeMounts", 0)).Also(
 				apis.ErrMissingField("mountPath").ViaFieldIndex("volumeMounts", 0)).Also(
 				apis.ErrDisallowedFields("mountPropagation").ViaFieldIndex("volumeMounts", 0)),
 		}, {
@@ -2030,6 +2183,34 @@ func TestVolumeValidation(t *testing.T) {
 		},
 		want:    apis.ErrInvalidValue(-1, "emptyDir.sizeLimit"),
 		cfgOpts: []configOption{withPodSpecVolumesEmptyDirEnabled()},
+	}, {
+		name: "valid PVC with PVC feature enabled",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "myclaim",
+					ReadOnly:  true,
+				},
+			},
+		},
+		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled()},
+	}, {
+		name: "valid PVC with PVC feature disabled",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "myclaim",
+					ReadOnly:  false,
+				},
+			}},
+		want: (&apis.FieldError{
+			Message: `Persistent volume claim support is disabled, but found persistent volume claim myclaim`,
+		}).Also(&apis.FieldError{
+			Message: `Persistent volume write support is disabled, but found persistent volume claim myclaim that is not read-only`,
+		}).Also(
+			&apis.FieldError{Message: "must not set the field(s)", Paths: []string{"persistentVolumeClaim"}}),
 	}, {
 		name: "no volume source",
 		v: corev1.Volume{

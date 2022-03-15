@@ -42,8 +42,9 @@ function stage_test_resources() {
 # Skip installing istio as an add-on.
 # Temporarily increasing the cluster size for serving tests to rule out
 # resource/eviction as causes of flakiness.
-# Pin to 1.20 since scale test is super flakey on 1.21
-initialize "$@" --skip-istio-addon  --min-nodes=4 --max-nodes=4 --cluster-version=1.20 \
+# Pin to 1.20 since scale test is super flaky on 1.21
+# Skip installing a pvc as it is not used in upgrade tests
+PVC=0 initialize "$@" --skip-istio-addon  --min-nodes=4 --max-nodes=4 --cluster-version=1.21 \
   --install-latest-release
 
 # TODO(#2656): Reduce the timeout after we get this test to consistently passing.
