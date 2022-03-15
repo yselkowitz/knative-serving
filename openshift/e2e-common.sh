@@ -377,6 +377,22 @@ function run_e2e_tests(){
     --skip-cleanup-on-fail \
     --resolvabledomain || failed=1
 
+  # Run PVC test
+  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"kubernetes.podspec-persistent-volume-claim": "enabled"}}}}' || fail_test
+  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"kubernetes.podspec-persistent-volume-write": "enabled"}}}}' || fail_test
+  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"kubernetes.podspec-securitycontext": "enabled"}}}}' || fail_test
+  oc apply -f ./test/config/pvc/pvc.yaml || return $?
+  go_test_e2e -timeout=5m ./test/e2e/pvc \
+    --kubeconfig "$KUBECONFIG" \
+    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
+    --enable-alpha \
+    --https \
+    --skip-cleanup-on-fail \
+    --resolvabledomain || failed=1
+  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"kubernetes.podspec-persistent-volume-claim": "disabled"}}}}' || fail_test
+  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"kubernetes.podspec-persistent-volume-write": "disabled"}}}}' || fail_test
+  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"kubernetes.podspec-securitycontext": "disabled"}}}}' || fail_test
+
   # Run the helloworld test with an image pulled into the internal registry.
   local image_to_tag=$KNATIVE_SERVING_TEST_HELLOWORLD
   oc tag -n serving-tests "$image_to_tag" "helloworld:latest" --reference-policy=local
