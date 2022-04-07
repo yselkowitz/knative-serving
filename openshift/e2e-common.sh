@@ -262,6 +262,12 @@ function prepare_knative_serving_tests_nightly {
   kubectl apply -f test/config/cluster-resources.yaml
   kubectl apply -f test/config/test-resources.yaml
 
+  # Apply resource quota in rq-test namespace, needed for the related e2e test.
+  oc apply -f ./test/config/resource-quota/resource-quota.yaml
+
+  # Apply persistent volume claim needed, needed for the related e2e test.
+  oc apply -f ./test/config/pvc/pvc.yaml
+
   oc adm policy add-scc-to-user privileged -z default -n serving-tests
   oc adm policy add-scc-to-user privileged -z default -n serving-tests-alt
   # Adding scc for anyuid to test TestShouldRunAsUserContainerDefault.
@@ -393,7 +399,6 @@ function run_e2e_tests(){
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"kubernetes.podspec-persistent-volume-claim": "enabled"}}}}' || fail_test
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"kubernetes.podspec-persistent-volume-write": "enabled"}}}}' || fail_test
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"kubernetes.podspec-securitycontext": "enabled"}}}}' || fail_test
-  oc apply -f ./test/config/pvc/pvc.yaml || return $?
   go_test_e2e -timeout=5m ./test/e2e/pvc \
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
