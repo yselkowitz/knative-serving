@@ -21,7 +21,7 @@ function resolve_file() {
   # 1. Rewrite image references
   # 2. Update config map entry
   # 3. Replace serving.knative.dev/release label.
-  sed -e "s+serving.knative.dev/release: devel+serving.knative.dev/release: \"v1.2.0\"+" \
-      -e "s+app.kubernetes.io/version: devel+app.kubernetes.io/version: \"v1.2.0\"+" \
+  sed -e "s+serving.knative.dev/release: devel+serving.knative.dev/release: \"v1.1.2\"+" \
+      -e "s+app.kubernetes.io/version: devel+app.kubernetes.io/version: \"v1.1.2\"+" \
       "$file" >> "$to"
 }
