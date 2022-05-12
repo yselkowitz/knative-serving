@@ -1,21 +1,17 @@
-#!/bin/bash -e
+#!/bin/bash
 
-# Usage: create-release-branch.sh v0.4.1 release-v0.4.1
+# Usage: create-release-branch.sh v0.4.1 release-0.4
+
+set -e # Exit immediately on error.
 
 release=$1
 target=$2
-release_regexp="^release-v([0-9]+\.)+([0-9])$"
-
-if [[ ! $target =~ $release_regexp ]]; then
-    echo "\"$target\" is wrong format. Must have proper format like release-v0.1.2"
-    exit 1
-fi
 
 # Fetch the latest tags and checkout a new branch from the wanted tag.
 git fetch upstream --tags
 git checkout -b "$target" "$release"
 
-# Update openshift's main and take all needed files from there.
+# Copy the openshift extra files from the OPENSHIFT/main branch.
 git fetch openshift main
 git checkout openshift/main -- openshift OWNERS_ALIASES OWNERS Makefile
 make generate-dockerfiles
@@ -23,3 +19,15 @@ make RELEASE=$release generate-release
 make RELEASE=ci generate-release
 git add openshift OWNERS_ALIASES OWNERS Makefile
 git commit -m "Add openshift specific files."
+
+# Apply patches .
+PATCH_DIR="openshift/patches"
+# Use release-specific patch dir if exists
+if [ -d "openshift/patches-${release}" ]; then
+    PATCH_DIR="openshift/patches-${release}"
+    # Update the nightly test images to actual versioned images
+    sed -i "s/knative-nightly:knative/knative-${release}:knative/g" ${PATCH_DIR}/*.patch
+fi
+git apply $PATCH_DIR/*
+make RELEASE=$release generate-release
+git commit -am ":fire: Apply carried patches."
