@@ -182,7 +182,10 @@ function update_csv(){
         - key: "kourier.yaml"
           path: "kourier.yaml"
 EOF
-  oc create configmap kourier-cm -n $OPERATORS_NAMESPACE --from-file="./openshift-knative-operator/cmd/operator/kodata/ingress/${KOURIER_MINOR_VERSION}/kourier.yaml" || return $?
+  cat ./openshift-knative-operator/cmd/operator/kodata/ingress/${KOURIER_MINOR_VERSION}/0-kourier.yaml \
+      ./openshift-knative-operator/cmd/operator/kodata/ingress/${KOURIER_MINOR_VERSION}/1-config-network.yaml > /tmp/kourier.yaml
+
+  oc create configmap kourier-cm -n $OPERATORS_NAMESPACE --from-file="/tmp/kourier.yaml" || return $?
 }
 
 function install_catalogsource(){
