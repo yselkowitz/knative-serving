@@ -30,4 +30,5 @@ if [ -d "openshift/patches-${release}" ]; then
 fi
 git apply $PATCH_DIR/*
 make RELEASE=$release generate-release
+git add .
 git commit -am ":fire: Apply carried patches."
