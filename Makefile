@@ -9,6 +9,9 @@ BRANCH=
 TEST=
 IMAGE=
 
+# Guess location of openshift/release repo. NOTE: override this if it is not correct.
+OPENSHIFT=${CURDIR}/../../github.com/openshift/release
+
 install:
 	for img in $(CORE_IMAGES); do \
 		go install -tags="disable_gcp,disable_aws,disable_azure" $$img ; \
@@ -61,3 +64,8 @@ generate-ci-config:
 generate-release:
 	./openshift/release/generate-release.sh $(RELEASE)
 .PHONY: generate-release
+
+# Update CI configuration in the $(OPENSHIFT) directory.
+# NOTE: Makes changes outside this repository.
+update-ci:
+	sh ./openshift/ci-operator/update-ci.sh $(OPENSHIFT) $(CORE_IMAGES)
