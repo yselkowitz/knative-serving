@@ -199,8 +199,8 @@ function install_catalogsource(){
   source ./test/lib.bash
   create_namespaces "${SYSTEM_NAMESPACES[@]}"
   update_csv $CURRENT_DIR || return $?
-  # Make OPENSHIFT_CI empty to use nightly build images.
-  OPENSHIFT_CI="" ensure_catalogsource_installed || return $?
+  # Make OPENSHIFT_CI non-empty to build the serverless index and use S-O nightly build images.
+  OPENSHIFT_CI="true" ensure_catalogsource_installed || return $?
   # Create a secret for https test.
   trust_router_ca || return $?
   popd
