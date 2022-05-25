@@ -265,9 +265,6 @@ function prepare_knative_serving_tests_nightly {
   kubectl apply -f test/config/cluster-resources.yaml
   kubectl apply -f test/config/test-resources.yaml
 
-  # Apply resource quota in rq-test namespace, needed for the related e2e test.
-  oc apply -f ./test/config/resource-quota/resource-quota.yaml
-
   # Apply persistent volume claim needed, needed for the related e2e test.
   oc apply -f ./test/config/pvc/pvc.yaml
 
