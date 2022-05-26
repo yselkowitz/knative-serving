@@ -182,7 +182,10 @@ function update_csv(){
         - key: "kourier.yaml"
           path: "kourier.yaml"
 EOF
-  oc create configmap kourier-cm -n $OPERATORS_NAMESPACE --from-file="./openshift-knative-operator/cmd/operator/kodata/ingress/${KOURIER_MINOR_VERSION}/kourier.yaml" || return $?
+  cat ./openshift-knative-operator/cmd/operator/kodata/ingress/${KOURIER_MINOR_VERSION}/0-kourier.yaml \
+      ./openshift-knative-operator/cmd/operator/kodata/ingress/${KOURIER_MINOR_VERSION}/1-config-network.yaml > /tmp/kourier.yaml
+
+  oc create configmap kourier-cm -n $OPERATORS_NAMESPACE --from-file="/tmp/kourier.yaml" || return $?
 }
 
 function install_catalogsource(){
@@ -190,14 +193,14 @@ function install_catalogsource(){
   # And checkout the setup script based on that commit.
   local SERVERLESS_DIR=$(mktemp -d)
   local CURRENT_DIR=$(pwd)
-  git clone --depth 1 https://github.com/openshift-knative/serverless-operator.git ${SERVERLESS_DIR}
+  git clone -b release-1.23 --depth 1 https://github.com/openshift-knative/serverless-operator.git ${SERVERLESS_DIR}
   pushd ${SERVERLESS_DIR}
 
   source ./test/lib.bash
   create_namespaces "${SYSTEM_NAMESPACES[@]}"
   update_csv $CURRENT_DIR || return $?
-  # Make OPENSHIFT_CI empty to use nightly build images.
-  OPENSHIFT_CI="" ensure_catalogsource_installed || return $?
+  # Make OPENSHIFT_CI non-empty to build the serverless index and use S-O nightly build images.
+  OPENSHIFT_CI="true" ensure_catalogsource_installed || return $?
   # Create a secret for https test.
   trust_router_ca || return $?
   popd
