@@ -1,0 +1,26 @@
+diff --git a/config/core/deployments/activator-hpa.yaml b/config/core/deployments/activator-hpa.yaml
+index 6c7133723..8153937c3 100644
+--- a/config/core/deployments/activator-hpa.yaml
++++ b/config/core/deployments/activator-hpa.yaml
+@@ -41,7 +41,7 @@ spec:
+ # Activator PDB. Currently we permit unavailability of 20% of tasks at the same time.
+ # Given the subsetting and that the activators are partially stateful systems, we want
+ # a slow rollout of the new versions and slow migration during node upgrades.
+-apiVersion: policy/v1
++apiVersion: policy/v1beta1
+ kind: PodDisruptionBudget
+ metadata:
+   name: activator-pdb
+diff --git a/config/core/deployments/webhook-hpa.yaml b/config/core/deployments/webhook-hpa.yaml
+index c3bd9d00e..2243083aa 100644
+--- a/config/core/deployments/webhook-hpa.yaml
++++ b/config/core/deployments/webhook-hpa.yaml
+@@ -39,7 +39,7 @@ spec:
+         averageUtilization: 100
+ ---
+ # Webhook PDB.
+-apiVersion: policy/v1
++apiVersion: policy/v1beta1
+ kind: PodDisruptionBudget
+ metadata:
+   name: webhook-pdb
