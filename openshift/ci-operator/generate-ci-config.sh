@@ -149,8 +149,6 @@ EOF
   cron="$(generate_cron_expression)"
 
   print_single_test    "e2e-aws-ocp-${openshift//./}"             "make test-e2e"         "" "true" "generic-claim" ""
-  print_single_test    "conformance-aws-ocp-${openshift//./}"     "make test-conformance" "" "true" "generic-claim" ""
-  print_single_test    "reconciler-aws-ocp-${openshift//./}"      "make test-reconciler"  "" "true" "generic-claim" ""
 
   if [[ "$generate_continuous" == true ]]; then
     print_single_test "e2e-aws-ocp-${openshift//./}-continuous"  "make test-e2e"          "" "true" "generic-claim" "${cron}"
