@@ -331,6 +331,9 @@ func (sc *SpoofingClient) endpointState(
 }
 
 func (sc *SpoofingClient) Check(req *http.Request, inState ResponseChecker, checkers ...interface{}) (*Response, error) {
+	if len(checkers) == 0 {
+		checkers = []interface{}{ErrorRetryChecker(DefaultErrorRetryChecker), ResponseRetryChecker(DefaultResponseRetryChecker), ResponseRetryChecker(RouteInconsistencyMultiRetryChecker())}
+	}
 	resp, err := sc.Do(req, checkers...)
 	if err != nil {
 		return nil, err
