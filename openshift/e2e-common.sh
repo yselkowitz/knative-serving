@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+root="$(dirname "${BASH_SOURCE[0]}")"
+
 # shellcheck disable=SC1090
 source "$(dirname "$0")/../test/e2e-common.sh"
 source "$(dirname "$0")/release/resolve.sh"
@@ -111,18 +113,6 @@ function update_csv(){
   local KOURIER_GATEWAY=$(grep -w "docker.io/maistra/proxyv2-ubi8" $SERVING_DIR/third_party/kourier-latest/kourier.yaml  | awk '{print $NF}')
   local CSV="olm-catalog/serverless-operator/manifests/serverless-operator.clusterserviceversion.yaml"
 
-  # Install CatalogSource in OLM namespace
-  # TODO: Rework this into a loop
-  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-queue\"|\"${KNATIVE_SERVING_QUEUE}\"|g"                   ${CSV}
-  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-activator\"|\"${KNATIVE_SERVING_ACTIVATOR}\"|g"           ${CSV}
-  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-autoscaler\"|\"${KNATIVE_SERVING_AUTOSCALER}\"|g"         ${CSV}
-  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-autoscaler-hpa\"|\"${KNATIVE_SERVING_AUTOSCALER_HPA}\"|g" ${CSV}
-  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-controller\"|\"${KNATIVE_SERVING_CONTROLLER}\"|g"         ${CSV}
-  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-webhook\"|\"${KNATIVE_SERVING_WEBHOOK}\"|g"               ${CSV}
-  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-domain-mapping\"|\"${KNATIVE_SERVING_DOMAIN_MAPPING}\"|g"                       ${CSV}
-  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-domain-mapping-webhook\"|\"${KNATIVE_SERVING_DOMAIN_MAPPING_WEBHOOK}\"|g"       ${CSV}
-  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-storage-version-migration\"|\"${KNATIVE_SERVING_STORAGE_VERSION_MIGRATION}\"|g" ${CSV}
-
   # Replace kourier's image with the latest ones from third_party/kourier-latest
   sed -i -e "s|\"docker.io/maistra/proxyv2-ubi8:.*\"|\"${KOURIER_GATEWAY}\"|g"                                        ${CSV}
   sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:kourier\"|\"${KOURIER_CONTROL}\"|g"               ${CSV}
@@ -193,11 +183,13 @@ function install_catalogsource(){
   # And checkout the setup script based on that commit.
   local SERVERLESS_DIR=$(mktemp -d)
   local CURRENT_DIR=$(pwd)
-  git clone --depth 1 https://github.com/openshift-knative/serverless-operator.git ${SERVERLESS_DIR}
+  git clone --branch inject_serving_images --depth 1 https://github.com/skonto/serverless-operator.git ${SERVERLESS_DIR}
   pushd ${SERVERLESS_DIR}
 
   source ./test/lib.bash
   create_namespaces "${SYSTEM_NAMESPACES[@]}"
+  export GOPATH=/tmp/go
+  OPENSHIFT_CI="true" make generated-files || return $?
   update_csv $CURRENT_DIR || return $?
   # Make OPENSHIFT_CI non-empty to build the serverless index and use S-O nightly build images.
   OPENSHIFT_CI="true" ensure_catalogsource_installed || return $?
@@ -208,6 +200,7 @@ function install_catalogsource(){
 
 function install_knative(){
   header "Installing Knative"
+  export KNATIVE_SERVING_TEST_MANIFESTS_DIR="${root}/release"
   install_catalogsource || return $?
   create_configmaps || return $?
   deploy_serverless_operator "$CURRENT_CSV" || return $?
@@ -252,11 +245,11 @@ EOF
 
 function create_configmaps(){
   # Create configmap to use the latest manifest.
-  oc create configmap ko-data-serving -n $OPERATORS_NAMESPACE --from-file="openshift/release/knative-serving-ci.yaml" || return $?
+  oc create configmap ko-data-serving -n $OPERATORS_NAMESPACE --from-file="${KNATIVE_SERVING_TEST_MANIFESTS_DIR}/knative-serving-ci.yaml" || return $?
 
   # Create eventing manifest. We don't want to do this, but upstream designed that knative-eventing dir is mandatory
   # when KO_DATA_PATH was overwritten.
-  oc create configmap ko-data-eventing -n $OPERATORS_NAMESPACE --from-file="openshift/release/knative-eventing-ci.yaml" || return $?
+  oc create configmap ko-data-eventing -n $OPERATORS_NAMESPACE --from-file="${KNATIVE_SERVING_TEST_MANIFESTS_DIR}/knative-eventing-ci.yaml" || return $?
 }
 
 function prepare_knative_serving_tests_nightly {
