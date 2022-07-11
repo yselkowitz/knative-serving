@@ -4,7 +4,9 @@ CGO_ENABLED=0
 GOOS=linux
 CORE_IMAGES=./cmd/activator ./cmd/autoscaler ./cmd/autoscaler-hpa ./cmd/controller ./cmd/queue ./cmd/webhook ./vendor/knative.dev/pkg/apiextensions/storageversion/cmd/migrate ./cmd/domain-mapping ./cmd/domain-mapping-webhook
 TEST_IMAGES=$(shell find ./test/test_images ./test/test_images/multicontainer -mindepth 1 -maxdepth 1 -type d)
+TEST_IMAGE_TAG=latest
 DOCKER_REPO_OVERRIDE=
+KO_FLAGS=
 BRANCH=
 TEST=
 IMAGE=
@@ -30,13 +32,13 @@ test-e2e:
 
 test-images:
 	for img in $(TEST_IMAGES); do \
-		KO_DOCKER_REPO=$(DOCKER_REPO_OVERRIDE) ko resolve --tags=latest -RBf $$img ; \
+		KO_DOCKER_REPO=$(DOCKER_REPO_OVERRIDE) ko resolve --tags=$(TEST_IMAGE_TAG) $(KO_FLAGS) -RBf $$img ; \
 	done
-.PHONY: test-image-all
+.PHONY: test-images
 
 test-image-single:
-	KO_DOCKER_REPO=$(DOCKER_REPO_OVERRIDE) ko resolve --tags=latest -RBf test/test_images/$(IMAGE)
-.PHONY: test-image
+	KO_DOCKER_REPO=$(DOCKER_REPO_OVERRIDE) ko resolve --tags=$(TEST_IMAGE_TAG) $(KO_FLAGS) -RBf test/test_images/$(IMAGE)
+.PHONY: test-image-single
 
 # Run make DOCKER_REPO_OVERRIDE=<your_repo> test-e2e-local if test images are available
 # in the given repository. Make sure you first build and push them there by running `make test-images`.
