@@ -9,4 +9,6 @@ output_file="openshift/release/knative-serving-${release}.yaml"
 
 resolve_resources "config/core/ config/hpa-autoscaling/" "$output_file"
 
-${root}/download_release_artifacts.sh $release
+if [[ "$release" != "ci" ]]; then
+  ${root}/download_release_artifacts.sh $release
+fi
