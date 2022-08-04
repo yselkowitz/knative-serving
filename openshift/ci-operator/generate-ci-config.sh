@@ -188,16 +188,16 @@ function print_resources {
 resources:
   '*':
     limits:
-      memory: 2Gi
+      memory: 4Gi
     requests:
       cpu: 500m
-      memory: 2Gi
+      memory: 4Gi
   'bin':
     limits:
-      memory: 2Gi
+      memory: 4Gi
     requests:
       cpu: 500m
-      memory: 2Gi
+      memory: 4Gi
 EOF
 }
 
